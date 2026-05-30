@@ -1,7 +1,6 @@
 streamlit
 pubchempy
 py3Dmol
-stmol
 networkx
 plotly
 pandas
