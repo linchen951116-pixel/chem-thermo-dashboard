@@ -4,5 +4,6 @@ py3Dmol
 networkx
 plotly
 pandas
+scipy
 deep-translator
 requests
