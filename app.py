@@ -15,7 +15,7 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
-st.markdown("內建 **混合內容(HTTPS)安全防護** 與 **化學術語雙語翻譯引擎**，提供專業且零死角的分子視覺化體驗。")
+st.markdown("內建 **希爾分子式修正器** 與 **物態特徵萃取引擎**，完美支援無機鹽類與超高幀率矩陣熱傳導模擬。")
 
 # ==========================================
 # 核心一：維基百科學術名詞對接引擎
@@ -61,22 +61,34 @@ def fix_chemical_formula(formula):
     return formula
 
 # ==========================================
-# 核心二：全繁中翻譯 & 雙語對照爬蟲
+# 核心二：自動 3D/2D 結構檔爬蟲 & 狀態萃取引擎
 # ==========================================
-def safe_translate(text, show_original=False):
-    """化學術語雙語翻譯器：遇到奇怪文法時保留原文，盡顯專業"""
+def safe_translate(text):
+    """僅用於標準化 GHS 危害警告的翻譯"""
     if not text or text == "無相關文獻數據": return text
-    try:
-        translated = GoogleTranslator(source='en', target='zh-TW').translate(text)
-        # 針對外觀與性狀，強制附加上原文，避免翻譯軟體鬧烏龍
-        if show_original:
-            return f"{translated} *(原文: {text})*"
-        return translated
-    except: 
+    try: return GoogleTranslator(source='en', target='zh-TW').translate(text)
+    except: return text
+
+def simplify_physical_state(text):
+    """🚀 核心升級：關鍵字特徵萃取引擎，過濾複雜火星文，只輸出最直觀的物質三態"""
+    if not text or text == "無相關文獻數據": 
         return text
+        
+    text_lower = text.lower()
+    states = []
+    
+    if any(kw in text_lower for kw in ["gas", "vapor"]): 
+        states.append("☁️ 氣體")
+    if any(kw in text_lower for kw in ["liquid", "fluid", "solution"]): 
+        states.append("💧 液體")
+    if any(kw in text_lower for kw in ["solid", "crystal", "powder", "pellet", "crystalline", "granule", "chunk"]): 
+        states.append("🧊 固體")
+        
+    if states: 
+        return " / ".join(states)
+    return text # 如果真的都沒抓到上述關鍵字，才作為防呆機制回傳原文
 
 def get_mol_sdf(cid):
-    """只抓 3D，若無 3D 則回傳 None"""
     try:
         url_3d = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/record/SDF/?record_type=3d"
         res3d = requests.get(url_3d, timeout=5)
@@ -102,8 +114,8 @@ def fetch_sds_and_properties(cid):
                             heading = prop.get("TOCHeading")
                             try:
                                 val = prop["Information"][0]["Value"]["StringWithMarkup"][0]["String"]
-                                # 🚀 啟動雙語對照翻譯
-                                if heading == "Physical Description": props["外觀與性狀"] = safe_translate(val, show_original=True)
+                                # 🚀 套用萃取引擎，讓畫面乾淨俐落
+                                if heading == "Physical Description": props["外觀與性狀"] = simplify_physical_state(val)
                                 elif heading == "Density": props["密度"] = val if "g/" in val or "kg/" in val else f"{val} g/cm³"
                                 elif heading == "Melting Point": props["熔點"] = val
                                 elif heading == "Boiling Point": props["沸點"] = val
@@ -129,7 +141,6 @@ def fetch_sds_and_properties(cid):
     return props
 
 def generate_crystal_lattice_html(elements, style):
-    """無機物晶格重建引擎"""
     viewer = py3Dmol.view(width=450, height=350)
     viewer.setBackgroundColor('#f0f2f6')
     color_map = {"Na": "purple", "K": "violet", "Cl": "green", "O": "red", "N": "blue", "Default": "orange"}
@@ -154,7 +165,6 @@ def generate_crystal_lattice_html(elements, style):
                 viewer.addLine({'start': {'x': i*3, 'y': j*3, 'z': -6}, 'end': {'x': i*3, 'y': j*3, 'z': 6}, 'color': 'gray'})
                 
     viewer.zoomTo()
-    # 🚀 救命防護網：將 http 強制替換為 https，防止瀏覽器阻擋
     return viewer._make_html().replace("http://", "https://")
 
 # --- 側邊欄：全局參數設定面板 ---
@@ -250,7 +260,6 @@ with tab1:
                             viewer.setStyle({style: {}})
                             viewer.setBackgroundColor('#f0f2f6')
                             viewer.zoomTo()
-                            # 🚀 救命防護網：替換 HTTPS
                             safe_html = viewer._make_html().replace("http://", "https://")
                             components.html(safe_html, height=350, width=450)
                         elif len(st.session_state.mol_bonds) == 0 and len(st.session_state.mol_atoms) > 0:
@@ -276,8 +285,8 @@ with tab1:
                     with col_right:
                         st.subheader("⚠️ SDS 物質安全與危害標示 (GHS)")
                         signal = sds_data["危險信號詞"]
-                        if "Danger" in signal or "危險" in signal: st.error(f"**🚨 警示語: {signal}**")
-                        elif "Warning" in signal or "警告" in signal: st.warning(f"**⚠️ 警示語: {signal}**")
+                        if "Danger" in signal: st.error(f"**🚨 警示語: {signal}**")
+                        elif "Warning" in signal: st.warning(f"**⚠️ 警示語: {signal}**")
                         else: st.success("**✅ 警示語: 無特殊危險標示**")
                             
                         if sds_data["危害警告"]:
