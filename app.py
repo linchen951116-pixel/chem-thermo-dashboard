@@ -3,6 +3,7 @@ import pubchempy as pcp
 import py3Dmol
 import networkx as nx
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots  # 🚀 新增：雙圖表聯動模組
 import time
 import pandas as pd
 import numpy as np
@@ -11,11 +12,11 @@ import re
 import requests
 import streamlit.components.v1 as components
 
-# 網頁基礎設定 (必須在最第一行)
+# 網頁基礎設定
 st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
-st.markdown("內建 **Plotly 原生硬體加速動畫引擎**，徹底告別畫面閃爍與破圖，享受 60FPS 的極致流暢熱能擴散體驗。")
+st.markdown("內建 **雙聯動動畫引擎** 與 **防呆檢索保護**，支援高達 30 秒的同步動態熱傳導與折線圖實時繪製。")
 
 # ==========================================
 # 核心一：維基百科學術名詞對接引擎
@@ -37,7 +38,7 @@ def contains_chinese(text):
 def translate_via_wikipedia(zh_name):
     try:
         url = f"https://zh.wikipedia.org/w/api.php?action=query&prop=langlinks&titles={zh_name}&lllang=en&format=json"
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124 Safari/537.36'}
+        headers = {'User-Agent': 'Mozilla/5.0'}
         res = requests.get(url, headers=headers, timeout=5).json()
         pages = res.get("query", {}).get("pages", {})
         for page_id, page_info in pages.items():
@@ -55,8 +56,7 @@ def fix_chemical_formula(formula):
     if formula in formula_fix_map: return formula_fix_map[formula]
     for metal in ["Na", "K", "Ca", "Mg", "Al", "Fe", "Cu", "Zn", "Ag"]:
         if metal in formula and not formula.startswith(metal):
-            if not formula.startswith("C"): 
-                formula = metal + formula.replace(metal, "")
+            if not formula.startswith("C"): formula = metal + formula.replace(metal, "")
     return formula
 
 # ==========================================
@@ -90,11 +90,7 @@ def get_mol_sdf(cid):
     return None, "2D 平面"
 
 def fetch_sds_and_properties(cid):
-    props = {
-        "外觀與性狀": "無相關文獻數據", "密度": "無相關文獻數據", "熔點": "無相關文獻數據",
-        "沸點": "無相關文獻數據", "閃點": "無相關文獻數據", "溶解度": "無相關文獻數據",
-        "蒸氣壓": "無相關文獻數據", "危險信號詞": "無標示 / 安全", "危害警告": []
-    }
+    props = {"外觀與性狀": "無相關文獻數據", "密度": "無相關文獻數據", "熔點": "無相關文獻數據", "沸點": "無相關文獻數據", "閃點": "無相關文獻數據", "溶解度": "無相關文獻數據", "蒸氣壓": "無相關文獻數據", "危險信號詞": "無標示 / 安全", "危害警告": []}
     try:
         url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/{cid}/JSON"
         res = requests.get(url, timeout=6).json()
@@ -143,10 +139,8 @@ def generate_crystal_lattice_html(elements, style):
     for x in [-2, 0, 2]:
         for y in [-2, 0, 2]:
             for z in [-2, 0, 2]:
-                if (x + y + z) % 4 == 0:
-                    current_color, r = c1, 0.9 if style == "sphere" else 0.5
-                else:
-                    current_color, r = c2, 1.2 if style == "sphere" else 0.6
+                if (x + y + z) % 4 == 0: current_color, r = c1, 0.9 if style == "sphere" else 0.5
+                else: current_color, r = c2, 1.2 if style == "sphere" else 0.6
                 viewer.addSphere({'center': {'x': x*3, 'y': y*3, 'z': z*3}, 'radius': r, 'color': current_color})
                 
     if style in ["stick", "sphere", "line"]:
@@ -172,12 +166,12 @@ with st.sidebar:
     env_temp = st.slider("環境溫度設定 (°C)", min_value=-20.0, max_value=60.0, value=25.0, step=0.5)
     init_temp = st.slider("中心粒子點火溫度 (°C)", min_value=50.0, max_value=500.0, value=300.0, step=10.0)
     k_val = st.slider("熱傳導係數 (k)", min_value=0.01, max_value=0.50, value=0.15, step=0.01)
-    # 動畫速度改為毫秒級距，越小越快
-    anim_speed = st.slider("動畫播放速度 (每幀毫秒)", min_value=10, max_value=200, value=50, step=10)
+    
+    # 🚀 新增：動畫總時長控制
+    sim_duration = st.slider("模擬總時長 (秒)", min_value=3.0, max_value=30.0, value=10.0, step=1.0)
+    anim_speed = st.slider("動畫播放速度 (每幀毫秒)", min_value=10, max_value=200, value=40, step=10)
 
-# ==========================================
-# 狀態機與資料快取初始化
-# ==========================================
+# 初始化狀態機
 if 'mol_atoms' not in st.session_state:
     st.session_state.mol_atoms = list(range(10))
     st.session_state.mol_bonds = [(0,4), (0,5), (0,6), (1,4), (1,7), (1,8), (2,5), (2,7), (2,9), (3,6), (3,8), (3,9)]
@@ -189,7 +183,7 @@ if 'particle_temps' not in st.session_state:
     st.session_state.particle_temps = {i: env_temp for i in st.session_state.mol_atoms}
     st.session_state.particle_temps[0] = init_temp
 
-# 搜尋行為攔截與快取
+# 🚀 智慧防錯檢索邏輯
 if search_button and user_input:
     with st.spinner("🧠 系統正在調閱學術詞典並重建分子拓樸..."):
         try:
@@ -207,8 +201,11 @@ if search_button and user_input:
                             st.stop()
                         else: english_name = translated
 
+            # 🚀 加入防護網：攔截無效的拼字或 API 錯誤
             compounds = pcp.get_compounds(english_name, 'name')
-            if compounds:
+            if not compounds:
+                st.warning(f"⚠️ 資料庫無法精確配對「{english_name}」。建議：\n1. 檢查拼字是否正確（常有漏打字母的情況）\n2. 嘗試輸入更正式的化學英文學名或化學式 (例如: NaCl)。")
+            else:
                 c = compounds[0]
                 atoms = [atom.aid for atom in c.atoms]
                 bonds = [(bond.aid1, bond.aid2) for bond in c.bonds]
@@ -238,19 +235,17 @@ if search_button and user_input:
                 st.session_state.edge_node = e_node
                 st.session_state.mol_name = st.session_state.search_data["english_name"]
                 
-                # 重置溫度狀態
                 st.session_state.particle_temps = {i: env_temp for i in atoms}
                 st.session_state.particle_temps[c_node] = init_temp
-            else:
-                st.error(f"⚠️ 找不到與「{english_name}」匹配的物質。")
+                
         except Exception as e:
-            st.error(f"檢索發生錯誤：{e}")
+            st.error("⚠️ 檢索過程遭遇異常，可能因名稱極度不符或資料庫伺服器無回應。請檢查拼寫後再試！")
 
 # --- 雙分頁介面 ---
-tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 極速動畫渲染台 (無閃爍)"])
+tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 雙聯動極速動畫渲染台"])
 
 # ==========================================
-# 分頁 1：化學百科與 SDS 危害報告 (基於快取渲染)
+# 分頁 1：化學百科與 SDS 危害報告 
 # ==========================================
 with tab1:
     if 'search_data' in st.session_state:
@@ -317,10 +312,10 @@ with tab1:
         st.info("💡 請在左側輸入化學式或物質名稱，並按下「🔍 執行數據檢索」來啟動百科。")
 
 # ==========================================
-# 分頁 2：拉普拉斯矩陣極速動態熱傳導台 (客戶端原生動畫版)
+# 分頁 2：雙聯動原生硬體加速熱能擴散台
 # ==========================================
 with tab2:
-    st.subheader(f"🔥 {st.session_state.mol_name} - 原生硬體加速熱能擴散")
+    st.subheader(f"🔥 {st.session_state.mol_name} - 雙聯動極速熱擴散監控")
 
     atoms = st.session_state.mol_atoms
     bonds = st.session_state.mol_bonds
@@ -330,7 +325,6 @@ with tab2:
 
     btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 4])
     with btn_col1:
-        # 點擊按鈕後，後端瞬間算完資料，傳給前端播放
         start_anim = st.button("▶️ 生成並下載動畫底片", type="primary", use_container_width=True)
     with btn_col2:
         if st.button("🔄 重置初始溫度", use_container_width=True):
@@ -343,16 +337,12 @@ with tab2:
     G.add_nodes_from(atoms)
     G.add_edges_from(bonds)
     
-    # 防呆：無機鹽若無共價鍵，動態拉取模擬網格
     if len(bonds) == 0 and len(atoms) > 1:
-        for idx in range(len(atoms) - 1):
-            G.add_edge(atoms[idx], atoms[idx+1])
+        for idx in range(len(atoms) - 1): G.add_edge(atoms[idx], atoms[idx+1])
         bonds = list(G.edges())
 
-    if len(atoms) > 1:
-        pos_3d = nx.spring_layout(G, dim=3, seed=42)
-    else:
-        pos_3d = {a: [0, 0, 0] for a in atoms}
+    if len(atoms) > 1: pos_3d = nx.spring_layout(G, dim=3, seed=42)
+    else: pos_3d = {a: [0, 0, 0] for a in atoms}
     
     edge_x, edge_y, edge_z = [], [], []
     for bond in G.edges():
@@ -366,144 +356,100 @@ with tab2:
     node_y = [pos_3d[i][1] for i in atoms]
     node_z = [pos_3d[i][2] for i in atoms]
 
-    if N > 0:
-        L_matrix = nx.laplacian_matrix(G, nodelist=atoms).toarray()
+    if N > 0: L_matrix = nx.laplacian_matrix(G, nodelist=atoms).toarray()
     node_to_idx = {node: idx for idx, node in enumerate(atoms)}
 
     # ==========================================
-    # 核心黑科技：瞬間預先計算所有影格 (Client-Side Animation Prep)
+    # 核心黑科技：雙圖表聯動計算與 HTML 沙盒輸出
     # ==========================================
     if start_anim and N > 0:
-        with st.spinner("⚡ 矩陣極速運算中... 正在打包 150 張電影底片給瀏覽器！"):
+        with st.spinner(f"⚡ 矩陣極速運算中... 正在打包 {sim_duration} 秒的電影底片給瀏覽器！"):
             m, c_heat, dt = 1.0, 1.0, 0.02
+            total_steps = int(sim_duration / dt)
+            skip_step = max(1, total_steps // 100) # 智慧抽樣壓縮，保證瀏覽器不卡頓
+            
             T_array = np.array([st.session_state.particle_temps[i] for i in atoms])
             
-            # 歷史數據容器
             history_frames = []
-            core_hist = [T_array[node_to_idx[core]]]
-            edge_hist = [T_array[node_to_idx[edge]]]
-            time_hist = [0.0]
+            core_hist = []
+            edge_hist = []
+            time_hist = []
             current_t = 0.0
             
-            # 🚀 後端 0.01 秒瞬間跑完 150 次拉普拉斯矩陣運算
-            for frame in range(150):
-                dT = -k_val * dt * (L_matrix.dot(T_array)) / (m * c_heat)
-                T_array += dT
-                current_t += dt
+            # 瞬間計算物理演化
+            for frame in range(total_steps + 1):
+                if frame > 0:
+                    dT = -k_val * dt * (L_matrix.dot(T_array)) / (m * c_heat)
+                    T_array += dT
+                    current_t += dt
                 
-                # 抽取幀數減輕前端負擔 (每 2 幀存一張底片)
-                if frame % 2 == 0 or frame == 149:
+                if frame % skip_step == 0 or frame == total_steps:
                     history_frames.append(T_array.copy())
                     core_hist.append(T_array[node_to_idx[core]])
                     edge_hist.append(T_array[node_to_idx[edge]])
                     time_hist.append(current_t)
             
-            # 建立 Plotly 基礎圖表
-            fig3d = go.Figure()
+            # 🚀 將 3D 圖與 2D 折線圖合併為「雙聯動儀表板」
+            fig = make_subplots(
+                rows=1, cols=2, 
+                specs=[[{'type': 'scene'}, {'type': 'xy'}]],
+                column_widths=[0.55, 0.45],
+                subplot_titles=(f"🔥 {st.session_state.mol_name} 3D 熱傳導", "📈 溫度動態變化 (°C)")
+            )
             
-            # 繪製靜態化學鍵 (Trace 0)
-            fig3d.add_trace(go.Scatter3d(x=edge_x, y=edge_y, z=edge_z, mode='lines', line=dict(color='gray', width=3), hoverinfo='none'))
+            # [Trace 0] 靜態化學鍵
+            fig.add_trace(go.Scatter3d(x=edge_x, y=edge_y, z=edge_z, mode='lines', line=dict(color='gray', width=3), hoverinfo='none'), row=1, col=1)
             
-            # 繪製初始原子 (Trace 1)
+            # [Trace 1] 初始原子
             init_T = history_frames[0]
-            init_labels = []
-            for i in atoms:
-                prefix = "🔥 Core" if i == core else ("❄️ Edge" if i == edge else f"Atom {i}")
-                init_labels.append(f"{prefix}<br>{init_T[node_to_idx[i]]:.1f}°C")
-                
-            fig3d.add_trace(go.Scatter3d(
-                x=node_x, y=node_y, z=node_z, mode='markers+text',
-                text=init_labels, textposition="top center", textfont=dict(size=11, color='white'),
-                marker=dict(size=24, color=init_T, colorscale='Turbo', cmin=-20, cmax=500,
-                            colorbar=dict(title="溫度 (°C)", thickness=15), line=dict(width=2, color='white'))
-            ))
+            init_labels = [f"🔥 Core<br>{init_T[node_to_idx[i]]:.1f}°C" if i == core else (f"❄️ Edge<br>{init_T[node_to_idx[i]]:.1f}°C" if i == edge else f"Atom {i}<br>{init_T[node_to_idx[i]]:.1f}°C") for i in atoms]
+            fig.add_trace(go.Scatter3d(x=node_x, y=node_y, z=node_z, mode='markers+text', text=init_labels, textposition="top center", marker=dict(size=22, color=init_T, colorscale='Turbo', cmin=env_temp-10, cmax=init_temp, colorbar=dict(title="溫度", thickness=10, x=0.45))), row=1, col=1)
             
-            # 🚀 將 150 張底片封裝進 Plotly Frames (瀏覽器原生播放)
+            # [Trace 2 & 3] 初始折線圖
+            fig.add_trace(go.Scatter(x=[time_hist[0]], y=[core_hist[0]], mode='lines', name=f'中心點火源', line=dict(color='red', width=3)), row=1, col=2)
+            fig.add_trace(go.Scatter(x=[time_hist[0]], y=[edge_hist[0]], mode='lines', name=f'外圍原子', line=dict(color='blue', width=3)), row=1, col=2)
+            
+            # 🚀 建立雙聯動影格 (同步更新 3D 原子與 2D 折線圖)
             anim_frames = []
-            for idx, t_data in enumerate(history_frames):
-                frame_labels = []
-                for i in atoms:
-                    prefix = "🔥 Core" if i == core else ("❄️ Edge" if i == edge else f"Atom {i}")
-                    frame_labels.append(f"{prefix}<br>{t_data[node_to_idx[i]]:.1f}°C")
-                    
+            for step in range(len(time_hist)):
+                t_data = history_frames[step]
+                step_labels = [f"🔥 Core<br>{t_data[node_to_idx[i]]:.1f}°C" if i == core else (f"❄️ Edge<br>{t_data[node_to_idx[i]]:.1f}°C" if i == edge else f"Atom {i}<br>{t_data[node_to_idx[i]]:.1f}°C") for i in atoms]
+                
                 anim_frames.append(go.Frame(
                     data=[
-                        go.Scatter3d(x=edge_x, y=edge_y, z=edge_z, mode='lines', line=dict(color='gray', width=3)),
-                        go.Scatter3d(x=node_x, y=node_y, z=node_z, mode='markers+text', marker=dict(color=t_data), text=frame_labels)
+                        go.Scatter3d(marker=dict(color=t_data), text=step_labels), # 更新 Trace 1
+                        go.Scatter(x=time_hist[:step+1], y=core_hist[:step+1]),    # 更新 Trace 2
+                        go.Scatter(x=time_hist[:step+1], y=edge_hist[:step+1])     # 更新 Trace 3
                     ],
-                    name=f"frame_{idx}"
+                    traces=[1, 2, 3],
+                    name=f"f{step}"
                 ))
-            fig3d.frames = anim_frames
+            fig.frames = anim_frames
             
-            # 加上內建播放器 UI
-            fig3d.update_layout(
-                title="🎬 電影級動畫已準備就緒 (請點擊左下角 ▶️ 播放)",
+            # 介面與控制列設定
+            fig.update_layout(
                 scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False),
-                margin=dict(l=0, r=0, b=0, t=40), height=480, template="plotly_dark", showlegend=False,
+                template="plotly_dark", margin=dict(l=0, r=0, b=0, t=40), height=550,
                 updatemenus=[dict(
-                    type="buttons", showactive=False, y=-0.1, x=0.1, xanchor="right", yanchor="top",
+                    type="buttons", showactive=False, y=-0.05, x=0.5, xanchor="center", yanchor="top", direction="left",
                     buttons=[
-                        dict(label="▶️ 播放動畫", method="animate", args=[None, dict(frame=dict(duration=anim_speed, redraw=True), fromcurrent=True, transition=dict(duration=0))]),
+                        dict(label="▶️ 聯動播放", method="animate", args=[None, dict(frame=dict(duration=anim_speed, redraw=True), fromcurrent=True, transition=dict(duration=0))]),
                         dict(label="⏸️ 暫停", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate", transition=dict(duration=0))])
                     ]
                 )]
             )
+            # 鎖定 X/Y 軸範圍，避免動畫播放時畫面抖動
+            fig.update_xaxes(range=[0, sim_duration], title="時間 (秒)", row=1, col=2)
+            fig.update_yaxes(range=[env_temp - 10, init_temp + 20], title="溫度 (°C)", row=1, col=2)
 
-            # 繪製靜態總結折線圖
-            fig_line = go.Figure()
-            fig_line.add_trace(go.Scatter(x=time_hist, y=core_hist, mode='lines', name=f'中心點火源 (Atom {core})', line=dict(color='red', width=3)))
-            fig_line.add_trace(go.Scatter(x=time_hist, y=edge_hist, mode='lines', name=f'最外圍原子 (Atom {edge})', line=dict(color='blue', width=3)))
-            fig_line.update_layout(
-                title="📈 系統最終溫度趨勢全覽 (°C)", xaxis_title="時間 (秒)", yaxis_title="溫度 (°C)",
-                margin=dict(l=0, r=0, b=0, t=40), height=480, template="plotly_dark"
-            )
-
-            # 一次性拋出渲染，不佔用後端資源
-            col_visual, col_chart = st.columns([1.4, 1])
-            with col_visual: st.plotly_chart(fig3d, use_container_width=True)
-            with col_chart: st.plotly_chart(fig_line, use_container_width=True)
+            # 🚀 隔離沙盒輸出：徹底解決全螢幕呆掉的問題
+            html_str = fig.to_html(include_plotlyjs="require", full_html=False)
+            components.html(html_str, height=600, scrolling=False)
             
-            # 更新狀態機至最終結果
+            # 更新狀態機
             for i in atoms: st.session_state.particle_temps[i] = T_array[node_to_idx[i]]
-
-            st.success("✅ 運算與封裝完成！請點擊 3D 圖表左下角的「▶️ 播放動畫」按鈕觀賞絲滑體驗。")
+            st.success("✅ 雙聯動電影封裝完成！請點擊圖表下方的「▶️ 聯動播放」按鈕觀賞絲滑體驗。")
 
     else:
-        # --- 初始/靜態狀態渲染 ---
-        col_visual, col_chart = st.columns([1.4, 1])
-        
-        node_colors = [st.session_state.particle_temps[i] for i in atoms]
-        node_labels = []
-        for i in atoms:
-            prefix = "🔥 Core" if i == core else ("❄️ Edge" if i == edge else f"Atom {i}")
-            node_labels.append(f"{prefix}<br>{st.session_state.particle_temps[i]:.1f}°C")
-            
-        fig3d = go.Figure()
-        fig3d.add_trace(go.Scatter3d(x=edge_x, y=edge_y, z=edge_z, mode='lines', line=dict(color='gray', width=3), hoverinfo='none'))
-        fig3d.add_trace(go.Scatter3d(
-            x=node_x, y=node_y, z=node_z, mode='markers+text',
-            text=node_labels, textposition="top center", textfont=dict(size=11, color='white'),
-            marker=dict(size=24, color=node_colors, colorscale='Turbo', cmin=-20, cmax=500,
-                        colorbar=dict(title="溫度 (°C)", thickness=15), line=dict(width=2, color='white'))
-        ))
-        fig3d.update_layout(
-            title=f"🛑 目前狀態為靜止 (請點擊左上方按鈕生成動畫)",
-            scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False),
-            margin=dict(l=0, r=0, b=0, t=40), height=480, template="plotly_dark", showlegend=False
-        )
-        with col_visual: st.plotly_chart(fig3d, use_container_width=True)
-
-        fig_line = go.Figure()
-        fig_line.update_layout(
-            title="📈 核心與外圍原子溫度趨勢 (°C)", xaxis_title="時間 (秒)", yaxis_title="溫度 (°C)",
-            margin=dict(l=0, r=0, b=0, t=40), height=480, template="plotly_dark"
-        )
-        with col_chart: st.plotly_chart(fig_line, use_container_width=True)
-
-    st.markdown("### 🔢 每個粒子的即時溫度數據面板 (°C)")
-    df_realtime = pd.DataFrame({
-        "粒子編號": [f"Atom {i}" for i in atoms],
-        "即時溫度數據 (°C)": [f"{st.session_state.particle_temps[i]:.2f} °C" for i in atoms],
-        "拓樸定位": ["🔥 中心點火源" if i == core else "❄️ 外部邊緣節點" if i == edge else "中圈熱傳導節點" for i in atoms]
-    })
-    st.dataframe(df_realtime.set_index("粒子編號"), use_container_width=True)
+        # 初始/靜態狀態渲染 (等待使用者生成動畫前)
+        st.info("💡 請點擊上方「▶️ 生成並下載動畫底片」按鈕來渲染動態視覺化儀表板。")
