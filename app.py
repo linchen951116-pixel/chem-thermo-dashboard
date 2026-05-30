@@ -46,7 +46,7 @@ def translate_via_wikipedia(zh_name):
     return None
 
 def fix_chemical_formula(formula):
-    """🚀 核心升級 1：將國際資料庫的反常希爾排序法，逆轉為傳統化學式"""
+    """將國際資料庫的反常希爾排序法，逆轉為傳統化學式"""
     if not formula: return formula
     formula_fix_map = {
         "ClNa": "NaCl", "HNaO": "NaOH", "ClK": "KCl", "HKO": "KOH",
@@ -55,10 +55,9 @@ def fix_chemical_formula(formula):
     }
     if formula in formula_fix_map: return formula_fix_map[formula]
     
-    # 智能規則：如果發現金屬被排在後面，強制拉到最前面
     for metal in ["Na", "K", "Ca", "Mg", "Al", "Fe", "Cu", "Zn", "Ag"]:
         if metal in formula and not formula.startswith(metal):
-            if not formula.startswith("C"): # 排除有機物
+            if not formula.startswith("C"): 
                 formula = metal + formula.replace(metal, "")
     return formula
 
@@ -71,17 +70,14 @@ def safe_translate(text):
     except: return text
 
 def get_mol_sdf(cid):
-    """🚀 核心升級 2：雙重結構下載引擎，沒有 3D 就自動降級抓 2D，徹底解決空白畫面"""
+    """🚀 核心升級 3：只抓 3D，若無 3D 則回傳 None，交給前端切換官方 2D 圖片"""
     try:
         url_3d = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/record/SDF/?record_type=3d"
         res3d = requests.get(url_3d, timeout=5)
-        if res3d.status_code == 200: return res3d.text, "3D 立體"
-            
-        url_2d = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/record/SDF/?record_type=2d"
-        res2d = requests.get(url_2d, timeout=5)
-        if res2d.status_code == 200: return res2d.text, "2D 平面"
+        if res3d.status_code == 200: 
+            return res3d.text, "3D 立體"
     except: pass
-    return None, None
+    return None, "2D 平面"
 
 def fetch_sds_and_properties(cid):
     props = {
@@ -204,11 +200,7 @@ with tab1:
                     st.session_state.particle_temps[st.session_state.core_node] = init_temp
                     
                     sds_data = fetch_sds_and_properties(c.cid)
-                    
-                    # 🚀 套用化學式修正器
                     fixed_formula = fix_chemical_formula(c.molecular_formula)
-                    
-                    # 🚀 下載真實結構 SDF 檔
                     sdf_data, dim_type = get_mol_sdf(c.cid)
                     
                     st.success(f"✅ 檢索成功！物質映射：「**{english_name.capitalize()}**」 | 真實原子數: {len(st.session_state.mol_atoms)}")
@@ -217,18 +209,18 @@ with tab1:
                     with col_left:
                         st.subheader("⚛️ 空間立體結構")
                         
-                        if sdf_data:
-                            if dim_type == "2D 平面":
-                                st.warning("⚠️ 查無官方 3D 模型 (離子化合物常見現象)，系統已自動降級為 2D 結構安全顯示模式。")
-                            
+                        # 🚀 防護網：有 3D 畫 3D，沒有就抓原廠高清 2D 圖片！
+                        if dim_type == "3D 立體" and sdf_data:
                             viewer = py3Dmol.view(width=450, height=350)
-                            viewer.addModel(sdf_data, "sdf") # 強制載入 SDF
+                            viewer.addModel(sdf_data, "sdf")
                             viewer.setStyle({style: {}})
                             viewer.setBackgroundColor('#f0f2f6')
                             viewer.zoomTo()
                             components.html(viewer._make_html(), height=350, width=450)
                         else:
-                            st.error("⚠️ 無法從美國國立衛生研究院 (NIH) 取得任何結構檔案。")
+                            st.warning("⚠️ 查無官方 3D 模型 (離子化合物常見現象)，系統已自動降級為高解析度 2D 原廠結構圖。")
+                            img_url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{c.cid}/PNG?image_size=large"
+                            st.image(img_url, use_container_width=True)
                         
                         st.markdown("---")
                         st.subheader("🧮 計算結構屬性")
@@ -346,7 +338,7 @@ with tab2:
         edge_y.extend([y0, y1, None])
         edge_z.extend([z0, z1, None])
 
-    # 🚀 初始化 NumPy 拉普拉斯矩陣 (確保矩陣行列嚴格對齊原子 ID)
+    # 矩陣初始化
     if N > 0:
         L_matrix = nx.laplacian_matrix(G, nodelist=atoms).toarray()
     node_to_idx = {node: idx for idx, node in enumerate(atoms)}
@@ -363,7 +355,6 @@ with tab2:
             if i == core: prefix = "🔥 Core"
             elif i == edge: prefix = "❄️ Edge"
             else: prefix = f"Atom {i}"
-            # 🚀 全面標示攝氏度 (°C)
             node_labels.append(f"{prefix}<br>{st.session_state.particle_temps[i]:.1f}°C")
         
         fig3d = go.Figure()
@@ -403,7 +394,6 @@ with tab2:
         })
         data_grid_placeholder.dataframe(df_realtime.set_index("粒子編號"), use_container_width=True)
 
-    # 🚀 啟動極速拉普拉斯矩陣熱傳導引擎
     if start_flow and N > 0:
         m, c_heat, dt = 1.0, 1.0, 0.02
         T_array = np.zeros(N)
@@ -411,7 +401,7 @@ with tab2:
             T_array[node_to_idx[i]] = st.session_state.particle_temps[i]
             
         for frame in range(150):
-            # 🚀 秒殺級運算：矩陣內積取代 for 迴圈
+            # 🚀 拉普拉斯矩陣全域同步運算
             dT = -k_val * dt * (L_matrix.dot(T_array)) / (m * c_heat)
             T_array += dT
             st.session_state.current_time += dt
@@ -427,7 +417,7 @@ with tab2:
                 render_all_components()
                 time.sleep(sim_speed)
             
-        st.success("✅ 矩陣極速運算完畢！系統已達熱平衡。")
+        st.success("✅ 拉普拉斯矩陣極速運算完畢！系統已達熱平衡。")
     elif start_flow:
         st.warning("⚠️ 查無原子數據，無法進行模擬。")
     else:
