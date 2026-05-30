@@ -15,7 +15,7 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
-st.markdown("內建 **希爾分子式修正器** 與 **物態特徵萃取引擎**，完美支援無機鹽類與超高幀率矩陣熱傳導模擬。")
+st.markdown("內建 **希爾分子式修正器** 與 **智慧物態特徵萃取引擎**，完美支援無機鹽類與超高幀率矩陣熱傳導模擬。")
 
 # ==========================================
 # 核心一：維基百科學術名詞對接引擎
@@ -46,7 +46,6 @@ def translate_via_wikipedia(zh_name):
     return None
 
 def fix_chemical_formula(formula):
-    """將國際資料庫的反常希爾排序法，逆轉為傳統化學式"""
     if not formula: return formula
     formula_fix_map = {
         "ClNa": "NaCl", "HNaO": "NaOH", "ClK": "KCl", "HKO": "KOH",
@@ -61,32 +60,38 @@ def fix_chemical_formula(formula):
     return formula
 
 # ==========================================
-# 核心二：自動 3D/2D 結構檔爬蟲 & 狀態萃取引擎
+# 核心二：自動 3D/2D 結構檔爬蟲 & 智慧物態萃取引擎
 # ==========================================
 def safe_translate(text):
-    """僅用於標準化 GHS 危害警告的翻譯"""
     if not text or text == "無相關文獻數據": return text
     try: return GoogleTranslator(source='en', target='zh-TW').translate(text)
     except: return text
 
 def simplify_physical_state(text):
-    """🚀 核心升級：關鍵字特徵萃取引擎，過濾複雜火星文，只輸出最直觀的物質三態"""
+    """🚀 核心升級：具備化學常識的物態萃取器，排除「水溶液」對純物質型態的干擾"""
     if not text or text == "無相關文獻數據": 
         return text
         
     text_lower = text.lower()
-    states = []
     
-    if any(kw in text_lower for kw in ["gas", "vapor"]): 
-        states.append("☁️ 氣體")
-    if any(kw in text_lower for kw in ["liquid", "fluid", "solution"]): 
-        states.append("💧 液體")
-    if any(kw in text_lower for kw in ["solid", "crystal", "powder", "pellet", "crystalline", "granule", "chunk"]): 
-        states.append("🧊 固體")
-        
-    if states: 
-        return " / ".join(states)
-    return text # 如果真的都沒抓到上述關鍵字，才作為防呆機制回傳原文
+    # 判斷是否為溶液造成的干擾
+    is_solution = "solution" in text_lower or "aqueous" in text_lower
+    
+    is_solid = any(kw in text_lower for kw in ["solid", "crystal", "powder", "pellet", "crystalline", "granule", "chunk", "salt"])
+    is_gas = any(kw in text_lower for kw in ["gas", "vapor"])
+    is_liquid = any(kw in text_lower for kw in ["liquid", "fluid"])
+    
+    # 優先級別判斷：純物質固體優先 > 純液體 > 氣體
+    if is_solid:
+        return "🧊 固體"
+    elif is_liquid and not is_solution: # 確保不是因為「水溶液」才被判定為液體
+        return "💧 液體"
+    elif is_gas:
+        return "☁️ 氣體"
+    elif is_solution:
+        return "💧 水溶液 (純物質通常為固體)"
+    else:
+        return text
 
 def get_mol_sdf(cid):
     try:
@@ -114,7 +119,7 @@ def fetch_sds_and_properties(cid):
                             heading = prop.get("TOCHeading")
                             try:
                                 val = prop["Information"][0]["Value"]["StringWithMarkup"][0]["String"]
-                                # 🚀 套用萃取引擎，讓畫面乾淨俐落
+                                # 🚀 套用升級版的萃取引擎
                                 if heading == "Physical Description": props["外觀與性狀"] = simplify_physical_state(val)
                                 elif heading == "Density": props["密度"] = val if "g/" in val or "kg/" in val else f"{val} g/cm³"
                                 elif heading == "Melting Point": props["熔點"] = val
