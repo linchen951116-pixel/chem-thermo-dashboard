@@ -1,0 +1,9 @@
+streamlit
+pubchempy
+py3Dmol
+stmol
+networkx
+plotly
+pandas
+deep-translator
+requests
