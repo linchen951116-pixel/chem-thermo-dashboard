@@ -1,7 +1,7 @@
 import streamlit as st
 import pubchempy as pcp
 import py3Dmol
-from stmol import showmol
+import streamlit.components.v1 as components
 import networkx as nx
 import plotly.graph_objects as go
 import time
