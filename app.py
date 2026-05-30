@@ -16,7 +16,7 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
-st.markdown("搭載 **HTML5 原生全螢幕黑科技** 與 **矩陣指數精確解**，徹底突破網頁框架限制，享受永不當機的劇院級熱傳導動畫。")
+st.markdown("搭載 **HTML5 原生全螢幕黑科技** 與 **手動播放制動引擎**，提供完美掌控的劇院級熱傳導簡報體驗。")
 
 # ==========================================
 # 核心一：維基百科學術名詞對接引擎
@@ -169,7 +169,7 @@ with st.sidebar:
     sim_duration = st.slider("模擬總時長 (秒)", min_value=3.0, max_value=30.0, value=10.0, step=1.0)
     anim_speed = st.slider("動畫播放速度 (每幀毫秒)", min_value=10, max_value=200, value=40, step=10)
 
-# 初始化與同步引擎
+# 初始化與智慧同步引擎
 if 'mol_atoms' not in st.session_state:
     st.session_state.mol_atoms = list(range(10))
     st.session_state.mol_bonds = [(0,4), (0,5), (0,6), (1,4), (1,7), (1,8), (2,5), (2,7), (2,9), (3,6), (3,8), (3,9)]
@@ -243,7 +243,7 @@ if search_button and user_input:
                 st.session_state.particle_temps[c_node] = init_temp
                 
         except Exception as e:
-            st.error("⚠️ 檢索過程遭遇異常，請檢查拼寫後再試！")
+            st.error("⚠️ 檢檢索過程遭遇異常，請檢查拼寫後再試！")
 
 tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 原生全螢幕動態熱傳導台"])
 
@@ -315,7 +315,7 @@ with tab1:
         st.info("💡 請在左側輸入化學式或物質名稱，並按下「🔍 執行數據檢索」來啟動百科。")
 
 # ==========================================
-# 分頁 2：原生全螢幕防當機動態熱傳導台
+# 分頁 2：原生全螢幕防當機動態熱傳導台 (制動煞車版)
 # ==========================================
 with tab2:
     st.subheader(f"🔥 {st.session_state.mol_name} - 劇院級熱傳導監控 (絕對精確解)")
@@ -363,7 +363,7 @@ with tab2:
     node_to_idx = {node: idx for idx, node in enumerate(atoms)}
 
     # ==========================================
-    # 核心黑科技：矩陣指數計算 + 原生瀏覽器全螢幕沙盒
+    # 核心黑科技：矩陣指數運算 + 煞車控制
     # ==========================================
     if start_anim and N > 0:
         with st.spinner(f"⚡ 啟動高等微積分運算... 正在使用矩陣指數打包 {sim_duration} 秒的絕對精確底片！"):
@@ -425,7 +425,8 @@ with tab2:
                 updatemenus=[dict(
                     type="buttons", showactive=False, y=-0.05, x=0.5, xanchor="center", yanchor="top", direction="left",
                     buttons=[
-                        dict(label="▶️ 播放動畫", method="animate", args=[None, dict(frame=dict(duration=anim_speed, redraw=True), fromcurrent=True, transition=dict(duration=0))]),
+                        # 🚀 核心優化：args 內加入 autoPlay: false，強制阻止生成完立刻偷跑
+                        dict(label="▶️ 播放動畫", method="animate", args=[None, dict(frame=dict(duration=anim_speed, redraw=True), fromcurrent=True, mode="immediate", autoPlay=False, transition=dict(duration=0))]),
                         dict(label="⏸️ 暫停", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate", transition=dict(duration=0))])
                     ]
                 )]
@@ -433,7 +434,6 @@ with tab2:
             fig.update_xaxes(range=[0, sim_duration], title="時間 (秒)", row=1, col=2)
             fig.update_yaxes(range=[env_temp - 10, init_temp + 20], title="溫度 (°C)", row=1, col=2)
 
-            # 🚀 霸體防禦黑科技：將 Plotly 打包，並植入瀏覽器原生 Fullscreen API 按鈕
             raw_html = fig.to_html(include_plotlyjs="cdn", full_html=False)
             
             custom_html = f"""
@@ -478,13 +478,13 @@ with tab2:
             </html>
             """
             
-            # 使用高容器渲染
             components.html(custom_html, height=750)
             
             for i in atoms: st.session_state.particle_temps[i] = history_frames[-1][node_to_idx[i]]
-            st.success("✅ 電影封裝完成！請直接點擊圖表右上方的【⤢ 劇院級全螢幕】，放大後點擊左下方的播放鍵，絕對不會再卡死！")
+            st.success("✅ 電影底片封裝成功！系統已進入『暫停待命狀態』，您可以先點擊右上角【⤢ 劇院級全螢幕】，準備就緒後再按下播放。")
 
     else:
+        # 初始狀態預覽
         col_visual, col_chart = st.columns([1.4, 1])
         node_colors = [st.session_state.particle_temps[i] for i in atoms]
         node_labels = []
