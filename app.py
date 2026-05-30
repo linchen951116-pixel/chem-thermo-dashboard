@@ -15,7 +15,7 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
-st.markdown("內建 **希爾分子式修正器** 與 **自動 2D/3D 降級渲染引擎**，完美支援無機鹽類與超高幀率矩陣熱傳導模擬。")
+st.markdown("內建 **混合內容(HTTPS)安全防護** 與 **化學術語雙語翻譯引擎**，提供專業且零死角的分子視覺化體驗。")
 
 # ==========================================
 # 核心一：維基百科學術名詞對接引擎
@@ -54,7 +54,6 @@ def fix_chemical_formula(formula):
         "C2H4O2": "CH₃COOH", 
     }
     if formula in formula_fix_map: return formula_fix_map[formula]
-    
     for metal in ["Na", "K", "Ca", "Mg", "Al", "Fe", "Cu", "Zn", "Ag"]:
         if metal in formula and not formula.startswith(metal):
             if not formula.startswith("C"): 
@@ -62,20 +61,26 @@ def fix_chemical_formula(formula):
     return formula
 
 # ==========================================
-# 核心二：自動 3D/2D 結構檔爬蟲 & SDS 翻譯
+# 核心二：全繁中翻譯 & 雙語對照爬蟲
 # ==========================================
-def safe_translate(text):
+def safe_translate(text, show_original=False):
+    """化學術語雙語翻譯器：遇到奇怪文法時保留原文，盡顯專業"""
     if not text or text == "無相關文獻數據": return text
-    try: return GoogleTranslator(source='en', target='zh-TW').translate(text)
-    except: return text
+    try:
+        translated = GoogleTranslator(source='en', target='zh-TW').translate(text)
+        # 針對外觀與性狀，強制附加上原文，避免翻譯軟體鬧烏龍
+        if show_original:
+            return f"{translated} *(原文: {text})*"
+        return translated
+    except: 
+        return text
 
 def get_mol_sdf(cid):
-    """🚀 核心升級 3：只抓 3D，若無 3D 則回傳 None，交給前端切換官方 2D 圖片"""
+    """只抓 3D，若無 3D 則回傳 None"""
     try:
         url_3d = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/record/SDF/?record_type=3d"
         res3d = requests.get(url_3d, timeout=5)
-        if res3d.status_code == 200: 
-            return res3d.text, "3D 立體"
+        if res3d.status_code == 200: return res3d.text, "3D 立體"
     except: pass
     return None, "2D 平面"
 
@@ -97,7 +102,8 @@ def fetch_sds_and_properties(cid):
                             heading = prop.get("TOCHeading")
                             try:
                                 val = prop["Information"][0]["Value"]["StringWithMarkup"][0]["String"]
-                                if heading == "Physical Description": props["外觀與性狀"] = safe_translate(val)
+                                # 🚀 啟動雙語對照翻譯
+                                if heading == "Physical Description": props["外觀與性狀"] = safe_translate(val, show_original=True)
                                 elif heading == "Density": props["密度"] = val if "g/" in val or "kg/" in val else f"{val} g/cm³"
                                 elif heading == "Melting Point": props["熔點"] = val
                                 elif heading == "Boiling Point": props["沸點"] = val
@@ -121,6 +127,35 @@ def fetch_sds_and_properties(cid):
                                         props["危害警告"] = [safe_translate(h) for h in raw_hazards[:5]]
     except: pass
     return props
+
+def generate_crystal_lattice_html(elements, style):
+    """無機物晶格重建引擎"""
+    viewer = py3Dmol.view(width=450, height=350)
+    viewer.setBackgroundColor('#f0f2f6')
+    color_map = {"Na": "purple", "K": "violet", "Cl": "green", "O": "red", "N": "blue", "Default": "orange"}
+    el1 = elements[0] if len(elements) > 0 else "Default"
+    el2 = elements[1] if len(elements) > 1 else "O"
+    c1, c2 = color_map.get(el1, color_map["Default"]), color_map.get(el2, color_map["Default"])
+    
+    for x in [-2, 0, 2]:
+        for y in [-2, 0, 2]:
+            for z in [-2, 0, 2]:
+                if (x + y + z) % 4 == 0:
+                    current_color, r = c1, 0.9 if style == "sphere" else 0.5
+                else:
+                    current_color, r = c2, 1.2 if style == "sphere" else 0.6
+                viewer.addSphere({'center': {'x': x*3, 'y': y*3, 'z': z*3}, 'radius': r, 'color': current_color})
+                
+    if style in ["stick", "sphere", "line"]:
+        for i in [-2, 0, 2]:
+            for j in [-2, 0, 2]:
+                viewer.addLine({'start': {'x': -6, 'y': i*3, 'z': j*3}, 'end': {'x': 6, 'y': i*3, 'z': j*3}, 'color': 'gray'})
+                viewer.addLine({'start': {'x': i*3, 'y': -6, 'z': j*3}, 'end': {'x': i*3, 'y': 6, 'z': j*3}, 'color': 'gray'})
+                viewer.addLine({'start': {'x': i*3, 'y': j*3, 'z': -6}, 'end': {'x': i*3, 'y': j*3, 'z': 6}, 'color': 'gray'})
+                
+    viewer.zoomTo()
+    # 🚀 救命防護網：將 http 強制替換為 https，防止瀏覽器阻擋
+    return viewer._make_html().replace("http://", "https://")
 
 # --- 側邊欄：全局參數設定面板 ---
 with st.sidebar:
@@ -209,16 +244,22 @@ with tab1:
                     with col_left:
                         st.subheader("⚛️ 空間立體結構")
                         
-                        # 🚀 防護網：有 3D 畫 3D，沒有就抓原廠高清 2D 圖片！
                         if dim_type == "3D 立體" and sdf_data:
                             viewer = py3Dmol.view(width=450, height=350)
                             viewer.addModel(sdf_data, "sdf")
                             viewer.setStyle({style: {}})
                             viewer.setBackgroundColor('#f0f2f6')
                             viewer.zoomTo()
-                            components.html(viewer._make_html(), height=350, width=450)
+                            # 🚀 救命防護網：替換 HTTPS
+                            safe_html = viewer._make_html().replace("http://", "https://")
+                            components.html(safe_html, height=350, width=450)
+                        elif len(st.session_state.mol_bonds) == 0 and len(st.session_state.mol_atoms) > 0:
+                            st.caption("💡 查無單分子 3D 座標，系統已自動動態生成微型離子晶格模型。")
+                            unique_elements = list(set([atom.element for atom in c.atoms]))
+                            html_content = generate_crystal_lattice_html(unique_elements, style)
+                            components.html(html_content, height=350, width=450)
                         else:
-                            st.warning("⚠️ 查無官方 3D 模型 (離子化合物常見現象)，系統已自動降級為高解析度 2D 原廠結構圖。")
+                            st.warning("⚠️ 查無官方 3D 模型，系統已降級為高解析度 2D 結構圖。")
                             img_url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{c.cid}/PNG?image_size=large"
                             st.image(img_url, use_container_width=True)
                         
@@ -314,12 +355,10 @@ with tab2:
     st.markdown("### 🔢 每個粒子的即時溫度數據面板 (°C)")
     data_grid_placeholder = st.empty()
 
-    # 建立拓樸圖
     G = nx.Graph()
     G.add_nodes_from(atoms)
     G.add_edges_from(bonds)
     
-    # 智慧防護：如果晶體結構造成完全無連結，動態拉出模擬傳導線
     if len(bonds) == 0 and len(atoms) > 1:
         for idx in range(len(atoms) - 1):
             G.add_edge(atoms[idx], atoms[idx+1])
@@ -338,7 +377,6 @@ with tab2:
         edge_y.extend([y0, y1, None])
         edge_z.extend([z0, z1, None])
 
-    # 矩陣初始化
     if N > 0:
         L_matrix = nx.laplacian_matrix(G, nodelist=atoms).toarray()
     node_to_idx = {node: idx for idx, node in enumerate(atoms)}
@@ -401,7 +439,6 @@ with tab2:
             T_array[node_to_idx[i]] = st.session_state.particle_temps[i]
             
         for frame in range(150):
-            # 🚀 拉普拉斯矩陣全域同步運算
             dT = -k_val * dt * (L_matrix.dot(T_array)) / (m * c_heat)
             T_array += dT
             st.session_state.current_time += dt
