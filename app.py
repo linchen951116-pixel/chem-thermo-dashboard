@@ -15,7 +15,7 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
-st.markdown("內建 **希爾分子式逆轉修正器** 與 **無機晶格立體重建引擎**，完美支援無機鹽類與離子化合物之 3D 互動視覺化。")
+st.markdown("內建 **希爾分子式修正器** 與 **自動 2D/3D 降級渲染引擎**，完美支援無機鹽類與超高幀率矩陣熱傳導模擬。")
 
 # ==========================================
 # 核心一：維基百科學術名詞對接引擎
@@ -37,56 +37,51 @@ def contains_chinese(text):
 def translate_via_wikipedia(zh_name):
     try:
         url = f"https://zh.wikipedia.org/w/api.php?action=query&prop=langlinks&titles={zh_name}&lllang=en&format=json"
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124 Safari/537.36'}
         res = requests.get(url, headers=headers, timeout=5).json()
         pages = res.get("query", {}).get("pages", {})
         for page_id, page_info in pages.items():
-            if "langlinks" in page_info:
-                return page_info["langlinks"][0]["*"] 
-    except:
-        pass
+            if "langlinks" in page_info: return page_info["langlinks"][0]["*"] 
+    except: pass
     return None
 
 def fix_chemical_formula(formula):
-    """🚀 核心升級：將國際資料庫的希爾排序法逆轉為傳統化學式習慣"""
-    if not formula:
-        return formula
-    # 常見無機物與離子化合物的反常分子式動態修正表
+    """🚀 核心升級 1：將國際資料庫的反常希爾排序法，逆轉為傳統化學式"""
+    if not formula: return formula
     formula_fix_map = {
-        "ClNa": "NaCl",
-        "HNaO": "NaOH",
-        "ClK": "KCl",
-        "HKO": "KOH",
-        "IK": "KI",
-        "JK": "KI",
-        "KNO2": "KNO₂",
-        "NO2K": "KNO₂",
-        "NO3K": "KNO₃",
-        "C2H4O2": "CH₃COOH", # 乙酸更直觀表示
+        "ClNa": "NaCl", "HNaO": "NaOH", "ClK": "KCl", "HKO": "KOH",
+        "IK": "KI", "KNO2": "KNO₂", "NO2K": "KNO₂", "NO3K": "KNO₃",
+        "C2H4O2": "CH₃COOH", 
     }
-    if formula in formula_fix_map:
-        return formula_fix_map[formula]
+    if formula in formula_fix_map: return formula_fix_map[formula]
     
-    # 智能規則：如果發現金屬元素(Na, K, Ca, Mg)被排在陰離子後面，自動前置
-    for metal in ["Na", "K", "Ca", "Mg", "Al", "Fe"]:
+    # 智能規則：如果發現金屬被排在後面，強制拉到最前面
+    for metal in ["Na", "K", "Ca", "Mg", "Al", "Fe", "Cu", "Zn", "Ag"]:
         if metal in formula and not formula.startswith(metal):
-            # 簡單防護，若非碳氫有機物，嘗試將金屬前置
-            if not formula.startswith("C"):
+            if not formula.startswith("C"): # 排除有機物
                 formula = metal + formula.replace(metal, "")
     return formula
 
 # ==========================================
-# 核心二：全繁中翻譯與 SDS 爬蟲
+# 核心二：自動 3D/2D 結構檔爬蟲 & SDS 翻譯
 # ==========================================
 def safe_translate(text):
-    if not text or text == "無相關文獻數據":
-        return text
+    if not text or text == "無相關文獻數據": return text
+    try: return GoogleTranslator(source='en', target='zh-TW').translate(text)
+    except: return text
+
+def get_mol_sdf(cid):
+    """🚀 核心升級 2：雙重結構下載引擎，沒有 3D 就自動降級抓 2D，徹底解決空白畫面"""
     try:
-        return GoogleTranslator(source='en', target='zh-TW').translate(text)
-    except:
-        return text
+        url_3d = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/record/SDF/?record_type=3d"
+        res3d = requests.get(url_3d, timeout=5)
+        if res3d.status_code == 200: return res3d.text, "3D 立體"
+            
+        url_2d = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/record/SDF/?record_type=2d"
+        res2d = requests.get(url_2d, timeout=5)
+        if res2d.status_code == 200: return res2d.text, "2D 平面"
+    except: pass
+    return None, None
 
 def fetch_sds_and_properties(cid):
     props = {
@@ -98,7 +93,6 @@ def fetch_sds_and_properties(cid):
         url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/{cid}/JSON"
         res = requests.get(url, timeout=6).json()
         sections = res.get("Record", {}).get("Section", [])
-        
         for sec in sections:
             if sec.get("TOCHeading") == "Chemical and Physical Properties":
                 for subsec in sec.get("Section", []):
@@ -132,53 +126,6 @@ def fetch_sds_and_properties(cid):
     except: pass
     return props
 
-def generate_crystal_lattice_html(elements, style):
-    """🚀 核心升級：當無機物缺乏 3D 座標時，自動動態建立微型離子晶格模型，消滅空白畫面"""
-    viewer = py3Dmol.view(width=450, height=350)
-    viewer.setBackgroundColor('#f0f2f6')
-    
-    # 分配陽離子與陰離子顏色
-    color_map = {"Na": "purple", "K": "violet", "Cl": "green", "O": "red", "N": "blue", "Default": "orange"}
-    
-    el1 = elements[0] if len(elements) > 0 else "Default"
-    el2 = elements[1] if len(elements) > 1 else "O"
-    
-    c1 = color_map.get(el1, color_map["Default"])
-    c2 = color_map.get(el2, color_map["Default"])
-    
-    # 建立一個 3x3x3 的交錯立體離子晶格
-    idx = 0
-    for x in [-2, 0, 2]:
-        for y in [-2, 0, 2]:
-            for z in [-2, 0, 2]:
-                # 交錯排列類 NaCl 結構
-                if (x + y + z) % 4 == 0:
-                    current_el = el1
-                    current_color = c1
-                    r = 0.9 if style == "sphere" else 0.5
-                else:
-                    current_el = el2
-                    current_color = c2
-                    r = 1.2 if style == "sphere" else 0.6
-                    
-                viewer.addSphere({
-                    'center': {'x': x*3, 'y': y*3, 'z': z*3},
-                    'radius': r,
-                    'color': current_color
-                })
-                idx += 1
-                
-    # 補上晶格骨架連線
-    if style in ["stick", "sphere", "line"]:
-        for i in [-2, 0, 2]:
-            for j in [-2, 0, 2]:
-                viewer.addLine({'start': {'x': -6, 'y': i*3, 'z': j*3}, 'end': {'x': 6, 'y': i*3, 'z': j*3}, 'color': 'gray'})
-                viewer.addLine({'start': {'x': i*3, 'y': -6, 'z': j*3}, 'end': {'x': i*3, 'y': 6, 'z': j*3}, 'color': 'gray'})
-                viewer.addLine({'start': {'x': i*3, 'y': j*3, 'z': -6}, 'end': {'x': i*3, 'y': j*3, 'z': 6}, 'color': 'gray'})
-                
-    viewer.zoomTo()
-    return viewer._make_html()
-
 # --- 側邊欄：全局參數設定面板 ---
 with st.sidebar:
     st.header("⚙️ 全局參數設定面板")
@@ -188,7 +135,7 @@ with st.sidebar:
     search_button = st.button("🔍 執行數據檢索", type="primary")
     
     st.markdown("---")
-    st.subheader("🔥 2. 熱傳傳導動態模擬參數")
+    st.subheader("🔥 2. 熱傳導動態模擬參數")
     env_temp = st.slider("環境溫度設定 (°C)", min_value=-20.0, max_value=60.0, value=25.0, step=0.5)
     init_temp = st.slider("中心粒子點火溫度 (°C)", min_value=50.0, max_value=500.0, value=300.0, step=10.0)
     k_val = st.slider("熱傳導係數 (k)", min_value=0.01, max_value=0.50, value=0.15, step=0.01)
@@ -209,7 +156,7 @@ tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 極速矩陣
 # ==========================================
 with tab1:
     if search_button and user_input:
-        with st.spinner("🧠 系統正在調閱學術詞典並重建三維幾何拓樸..."):
+        with st.spinner("🧠 系統正在調閱學術詞典並重建分子拓樸..."):
             try:
                 english_name = user_input
                 translation_source = "原生輸入"
@@ -258,33 +205,35 @@ with tab1:
                     
                     sds_data = fetch_sds_and_properties(c.cid)
                     
-                    # 🚀 呼叫修正模組，將 ClNa 逆轉回 NaCl
+                    # 🚀 套用化學式修正器
                     fixed_formula = fix_chemical_formula(c.molecular_formula)
+                    
+                    # 🚀 下載真實結構 SDF 檔
+                    sdf_data, dim_type = get_mol_sdf(c.cid)
                     
                     st.success(f"✅ 檢索成功！物質映射：「**{english_name.capitalize()}**」 | 真實原子數: {len(st.session_state.mol_atoms)}")
                     
                     col_left, col_right = st.columns([1, 1.3])
                     with col_left:
-                        st.subheader("⚛️ 3D 空間立體結構")
+                        st.subheader("⚛️ 空間立體結構")
                         
-                        # 🚀 [關鍵修復]：智慧防護網。如果沒有化學鍵，代表是離子晶體，自動切換至晶格重建引擎
-                        if len(st.session_state.mol_bonds) == 0 and len(st.session_state.mol_atoms) > 0:
-                            st.caption("💡 偵測到離子化合物點陣，系統已自動動態生成微型結晶晶格模型。")
-                            unique_elements = list(set([atom.element for atom in c.atoms]))
-                            html_content = generate_crystal_lattice_html(unique_elements, style)
-                            components.html(html_content, height=350, width=450)
-                        else:
-                            # 共價分子正常拉取 3D 座標
-                            viewer = py3Dmol.view(query=f"cid:{c.cid}", width=450, height=350)
+                        if sdf_data:
+                            if dim_type == "2D 平面":
+                                st.warning("⚠️ 查無官方 3D 模型 (離子化合物常見現象)，系統已自動降級為 2D 結構安全顯示模式。")
+                            
+                            viewer = py3Dmol.view(width=450, height=350)
+                            viewer.addModel(sdf_data, "sdf") # 強制載入 SDF
                             viewer.setStyle({style: {}})
                             viewer.setBackgroundColor('#f0f2f6')
                             viewer.zoomTo()
                             components.html(viewer._make_html(), height=350, width=450)
+                        else:
+                            st.error("⚠️ 無法從美國國立衛生研究院 (NIH) 取得任何結構檔案。")
                         
                         st.markdown("---")
                         st.subheader("🧮 計算結構屬性")
                         st.markdown(f"""
-                        * **修正後化學式:** `{fixed_formula}`
+                        * **慣用化學式:** `{fixed_formula}`
                         * **分子量:** `{c.molecular_weight} g/mol`
                         * **TPSA (極性表面積):** `{c.tpsa} Å²`
                         * **氫鍵 (供體/受體):** `{c.h_bond_donor_count} / {c.h_bond_acceptor_count}`
@@ -378,9 +327,8 @@ with tab2:
     G.add_nodes_from(atoms)
     G.add_edges_from(bonds)
     
-    # 防護：如果離子鍵數量為0，自動動態建構虛擬網格以供熱傳導演算法執行
+    # 智慧防護：如果晶體結構造成完全無連結，動態拉出模擬傳導線
     if len(bonds) == 0 and len(atoms) > 1:
-        # 動態為離子化合物補上鄰近熱傳導通道
         for idx in range(len(atoms) - 1):
             G.add_edge(atoms[idx], atoms[idx+1])
         bonds = list(G.edges())
@@ -398,9 +346,9 @@ with tab2:
         edge_y.extend([y0, y1, None])
         edge_z.extend([z0, z1, None])
 
-    # 矩陣初始化
+    # 🚀 初始化 NumPy 拉普拉斯矩陣 (確保矩陣行列嚴格對齊原子 ID)
     if N > 0:
-        L_matrix = nx.laplacian_matrix(G).toarray()
+        L_matrix = nx.laplacian_matrix(G, nodelist=atoms).toarray()
     node_to_idx = {node: idx for idx, node in enumerate(atoms)}
     idx_to_node = {idx: node for node, idx in node_to_idx.items()}
 
@@ -415,6 +363,7 @@ with tab2:
             if i == core: prefix = "🔥 Core"
             elif i == edge: prefix = "❄️ Edge"
             else: prefix = f"Atom {i}"
+            # 🚀 全面標示攝氏度 (°C)
             node_labels.append(f"{prefix}<br>{st.session_state.particle_temps[i]:.1f}°C")
         
         fig3d = go.Figure()
@@ -440,7 +389,7 @@ with tab2:
         fig_line.add_trace(go.Scatter(x=st.session_state.time_history, y=st.session_state.edge_history, mode='lines', name=f'最外圍原子 (Atom {edge})', line=dict(color='blue', width=3)))
         
         fig_line.update_layout(
-            title="📈 核心與外圍粒子溫度趨勢 (°C)",
+            title="📈 核心與外圍原子溫度趨勢 (°C)",
             xaxis_title="時間 (秒)", yaxis_title="溫度 (°C)",
             margin=dict(l=0, r=0, b=0, t=40), height=480, template="plotly_dark",
             uirevision='constant'
@@ -454,6 +403,7 @@ with tab2:
         })
         data_grid_placeholder.dataframe(df_realtime.set_index("粒子編號"), use_container_width=True)
 
+    # 🚀 啟動極速拉普拉斯矩陣熱傳導引擎
     if start_flow and N > 0:
         m, c_heat, dt = 1.0, 1.0, 0.02
         T_array = np.zeros(N)
@@ -461,7 +411,7 @@ with tab2:
             T_array[node_to_idx[i]] = st.session_state.particle_temps[i]
             
         for frame in range(150):
-            # 🚀 拉普拉斯矩陣全域同步運算
+            # 🚀 秒殺級運算：矩陣內積取代 for 迴圈
             dT = -k_val * dt * (L_matrix.dot(T_array)) / (m * c_heat)
             T_array += dT
             st.session_state.current_time += dt
@@ -477,7 +427,7 @@ with tab2:
                 render_all_components()
                 time.sleep(sim_speed)
             
-        st.success("✅ 拉普拉斯矩陣極速運算完畢！系統已達熱平衡。")
+        st.success("✅ 矩陣極速運算完畢！系統已達熱平衡。")
     elif start_flow:
         st.warning("⚠️ 查無原子數據，無法進行模擬。")
     else:
