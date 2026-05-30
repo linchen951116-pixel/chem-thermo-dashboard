@@ -5,27 +5,27 @@ import networkx as nx
 import plotly.graph_objects as go
 import time
 import pandas as pd
+import numpy as np  # 🚀 新增：科學計算矩陣引擎
 from deep_translator import GoogleTranslator
 import re
 import requests
 import streamlit.components.v1 as components
 
-# 網頁基礎設定 (必須在最第一行)
 st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
-st.markdown("搭載 **維基百科對接引擎** 與 **真實分子拓樸解析**，熱傳導模擬將完全依據真實化學鍵推演，並支援高幀率流暢動畫。")
+st.markdown("搭載 **拉普拉斯矩陣運算引擎 (Laplacian Matrix)** 與 **真實分子拓樸解析**，提供零延遲的極速熱傳導模擬。")
 
 # ==========================================
-# 核心一：維基百科學術名詞對接引擎
+# 核心一：維基百科學術名詞對接引擎 (新增 KNO2 等無機物)
 # ==========================================
 LOCAL_CHEM_DICT = {
     "阿斯匹靈": "Aspirin", "普拿疼": "Acetaminophen", "雙氧水": "Hydrogen peroxide",
     "鹽酸": "Hydrochloric acid", "硫酸": "Sulfuric acid", "硝酸": "Nitric acid",
     "氨水": "Ammonia", "食鹽": "Sodium chloride", "硝酸鉀": "Potassium nitrate",
+    "亞硝酸鉀": "Potassium nitrite", "KNO2": "Potassium nitrite", "kno2": "Potassium nitrite",
     "高錳酸鉀": "Potassium permanganate", "碳酸鈉": "Sodium carbonate",
-    "氫氧化鈉": "Sodium hydroxide", "乙酸": "Acetic acid", "冰醋酸": "Acetic acid",
-    "乙醇": "Ethanol", "酒精": "Ethanol", "甲醇": "Methanol",
+    "氫氧化鈉": "Sodium hydroxide", "乙醇": "Ethanol", "甲醇": "Methanol",
     "苯": "Benzene", "水": "Water"
 }
 
@@ -35,9 +35,7 @@ def contains_chinese(text):
 def translate_via_wikipedia(zh_name):
     try:
         url = f"https://zh.wikipedia.org/w/api.php?action=query&prop=langlinks&titles={zh_name}&lllang=en&format=json"
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124 Safari/537.36'}
         res = requests.get(url, headers=headers, timeout=5).json()
         pages = res.get("query", {}).get("pages", {})
         for page_id, page_info in pages.items():
@@ -51,12 +49,9 @@ def translate_via_wikipedia(zh_name):
 # 核心二：全繁中翻譯與 SDS 爬蟲
 # ==========================================
 def safe_translate(text):
-    if not text or text == "無相關文獻數據":
-        return text
-    try:
-        return GoogleTranslator(source='en', target='zh-TW').translate(text)
-    except:
-        return text
+    if not text or text == "無相關文獻數據": return text
+    try: return GoogleTranslator(source='en', target='zh-TW').translate(text)
+    except: return text
 
 def fetch_sds_and_properties(cid):
     props = {
@@ -68,7 +63,6 @@ def fetch_sds_and_properties(cid):
         url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/{cid}/JSON"
         res = requests.get(url, timeout=6).json()
         sections = res.get("Record", {}).get("Section", [])
-        
         for sec in sections:
             if sec.get("TOCHeading") == "Chemical and Physical Properties":
                 for subsec in sec.get("Section", []):
@@ -106,7 +100,7 @@ def fetch_sds_and_properties(cid):
 with st.sidebar:
     st.header("⚙️ 全局參數設定面板")
     st.subheader("🔬 1. 物質百科檢索")
-    user_input = st.text_input("輸入中文試劑或藥品名稱", "乙醇").strip()
+    user_input = st.text_input("輸入化學式、中文試劑或藥品名稱", "KNO2").strip()
     style = st.selectbox("3D 顯示風格", ["stick", "sphere", "line", "cross"])
     search_button = st.button("🔍 執行數據檢索", type="primary")
     
@@ -115,11 +109,9 @@ with st.sidebar:
     env_temp = st.slider("環境溫度設定 (°C)", min_value=-20.0, max_value=60.0, value=25.0, step=0.5)
     init_temp = st.slider("中心點火溫度 (°C)", min_value=50.0, max_value=500.0, value=300.0, step=10.0)
     k_val = st.slider("熱傳導係數 (k)", min_value=0.01, max_value=0.50, value=0.15, step=0.01)
-    sim_speed = st.slider("時間流動速度 (幀延遲秒數)", min_value=0.01, max_value=0.50, value=0.05, step=0.01)
+    sim_speed = st.slider("時間流動速度 (幀延遲秒數)", min_value=0.01, max_value=0.50, value=0.02, step=0.01)
 
-# ==========================================
 # 初始化真實分子拓樸狀態機
-# ==========================================
 if 'mol_atoms' not in st.session_state:
     st.session_state.mol_atoms = list(range(10))
     st.session_state.mol_bonds = [(0,4), (0,5), (0,6), (1,4), (1,7), (1,8), (2,5), (2,7), (2,9), (3,6), (3,8), (3,9)]
@@ -127,8 +119,7 @@ if 'mol_atoms' not in st.session_state:
     st.session_state.edge_node = 9
     st.session_state.mol_name = "預設測試結構"
 
-# --- 雙分頁介面 ---
-tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 真實分子拓樸熱傳導台"])
+tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 極速矩陣拓樸熱傳導台"])
 
 # ==========================================
 # 分頁 1：化學百科與 SDS 危害報告
@@ -140,7 +131,8 @@ with tab1:
                 english_name = user_input
                 translation_source = "原生輸入"
                 
-                if contains_chinese(user_input):
+                # 判斷是否為中文或字典內建
+                if contains_chinese(user_input) or user_input in LOCAL_CHEM_DICT:
                     if user_input in LOCAL_CHEM_DICT:
                         english_name = LOCAL_CHEM_DICT[user_input]
                         translation_source = "本地字典"
@@ -158,16 +150,15 @@ with tab1:
                                 english_name = translated
                                 translation_source = "Google 翻譯"
 
+                # 支援直接用化學式名稱搜尋 (KNO2, NaCl 等)
                 compounds = pcp.get_compounds(english_name, 'name')
                 if compounds:
                     c = compounds[0]
                     
-                    # 🚀 解析真實原子與化學鍵
                     st.session_state.mol_atoms = [atom.aid for atom in c.atoms]
                     st.session_state.mol_bonds = [(bond.aid1, bond.aid2) for bond in c.bonds]
                     st.session_state.mol_name = english_name.capitalize()
                     
-                    # 智能找出連結最多的核心原子 (點火點)
                     degree = {}
                     for a, b in st.session_state.mol_bonds:
                         degree[a] = degree.get(a, 0) + 1
@@ -180,7 +171,6 @@ with tab1:
                         st.session_state.core_node = st.session_state.mol_atoms[0] if st.session_state.mol_atoms else 0
                         st.session_state.edge_node = st.session_state.mol_atoms[-1] if st.session_state.mol_atoms else 0
                     
-                    # 強制重置熱傳導狀態機
                     st.session_state.current_time = 0.0
                     st.session_state.particle_temps = {i: env_temp for i in st.session_state.mol_atoms}
                     st.session_state.particle_temps[st.session_state.core_node] = init_temp
@@ -191,12 +181,15 @@ with tab1:
                     col_left, col_right = st.columns([1, 1.3])
                     with col_left:
                         st.subheader("⚛️ 3D 空間立體結構")
+                        
+                        # 🛡️ 離子化合物 3D 缺失防護網
+                        if len(st.session_state.mol_bonds) == 0 and len(st.session_state.mol_atoms) > 0:
+                            st.warning("⚠️ 偵測到此為**離子化合物**或**無機晶體** (如 KNO2, NaCl)。資料庫通常無收錄此類非共價鍵分子的標準 3D 單分子結構。")
+                        
                         viewer = py3Dmol.view(query=f"cid:{c.cid}", width=450, height=350)
                         viewer.setStyle({style: {}})
                         viewer.setBackgroundColor('#f0f2f6')
                         viewer.zoomTo()
-                        
-                        # 🚀 原生 HTML 渲染，拔除 stmol 毒瘤
                         components.html(viewer._make_html(), height=350, width=450)
                         
                         st.markdown("---")
@@ -211,7 +204,6 @@ with tab1:
                     with col_right:
                         st.subheader("⚠️ SDS 物質安全與危害標示 (GHS)")
                         signal = sds_data["危險信號詞"]
-                        
                         if "Danger" in signal or "危險" in signal: st.error(f"**🚨 警示語: {signal}**")
                         elif "Warning" in signal or "警告" in signal: st.warning(f"**⚠️ 警示語: {signal}**")
                         else: st.success("**✅ 警示語: 無特殊危險標示**")
@@ -239,18 +231,19 @@ with tab1:
             except Exception as e:
                 st.error(f"檢索發生錯誤：{e}")
     else:
-        st.info("💡 請在左側輸入物質名稱，並按下「🔍 執行數據檢索」來啟動百科。")
+        st.info("💡 請在左側輸入化學式或物質名稱，並按下「🔍 執行數據檢索」來啟動百科。")
 
 # ==========================================
-# 分頁 2：高幀率真實拓樸動態熱傳導台
+# 分頁 2：拉普拉斯矩陣極速動態熱傳導台
 # ==========================================
 with tab2:
-    st.subheader(f"🔥 {st.session_state.mol_name} - 真實分子熱能擴散監控")
+    st.subheader(f"🔥 {st.session_state.mol_name} - 矩陣極速熱能擴散監控")
 
     atoms = st.session_state.mol_atoms
     bonds = st.session_state.mol_bonds
     core = st.session_state.core_node
     edge = st.session_state.edge_node
+    N = len(atoms)
 
     if 'current_time' not in st.session_state:
         st.session_state.current_time = 0.0
@@ -268,7 +261,7 @@ with tab2:
 
     btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 4])
     with btn_col1:
-        start_flow = st.button("▶️ 開始時間流動", type="primary", use_container_width=True)
+        start_flow = st.button("▶️ 開始極速時間流動", type="primary", use_container_width=True)
     with btn_col2:
         reset_system = st.button("🔄 重置系統狀態", use_container_width=True)
 
@@ -287,17 +280,19 @@ with tab2:
     with col_chart:
         plot_line_placeholder = st.empty()
 
-    st.markdown("### 🔢 每個粒子的即時溫度數據面板")
+    st.markdown("### 🔢 每個粒子的即時溫度數據面板 (°C)")
     data_grid_placeholder = st.empty()
 
+    # 🚀 建立圖論模型與拉普拉斯矩陣 (Laplacian Matrix)
     G = nx.Graph()
     G.add_nodes_from(atoms)
     G.add_edges_from(bonds)
     
-    if len(atoms) > 1:
+    # 確保即便是單原子或無鍵結離子也有座標
+    if len(atoms) > 1 and len(bonds) > 0:
         pos_3d = nx.spring_layout(G, dim=3, seed=42)
     else:
-        pos_3d = {atoms[0]: [0, 0, 0]}
+        pos_3d = {a: [np.random.rand(), np.random.rand(), np.random.rand()] for a in atoms}
     
     edge_x, edge_y, edge_z = [], [], []
     for bond in G.edges():
@@ -306,6 +301,14 @@ with tab2:
         edge_x.extend([x0, x1, None])
         edge_y.extend([y0, y1, None])
         edge_z.extend([z0, z1, None])
+
+    # 🚀 產生 NumPy 拉普拉斯矩陣 (物理學界標準算法)
+    if N > 0:
+        L_matrix = nx.laplacian_matrix(G).toarray()
+    
+    # 建立對應的 index 映射，方便 Numpy 陣列與節點 ID 互轉
+    node_to_idx = {node: idx for idx, node in enumerate(atoms)}
+    idx_to_node = {idx: node for node, idx in node_to_idx.items()}
 
     def render_all_components():
         node_x = [pos_3d[i][0] for i in G.nodes()]
@@ -318,6 +321,7 @@ with tab2:
             if i == core: prefix = "🔥 Core"
             elif i == edge: prefix = "❄️ Edge"
             else: prefix = f"Atom {i}"
+            # 確保 3D 標籤帶有 °C
             node_labels.append(f"{prefix}<br>{st.session_state.particle_temps[i]:.1f}°C")
         
         fig3d = go.Figure()
@@ -330,14 +334,10 @@ with tab2:
                         colorbar=dict(title="溫度 (°C)", thickness=15), line=dict(width=2, color='white'))
         ))
         
-        # 🚀 效能護城河：將排版參數分行寫，避免字串截斷報錯
         fig3d.update_layout(
             title=f"⏳ 當前累積流動時間: {st.session_state.current_time:.2f} 秒",
             scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False),
-            margin=dict(l=0, r=0, b=0, t=40),
-            height=480,
-            template="plotly_dark",
-            showlegend=False,
+            margin=dict(l=0, r=0, b=0, t=40), height=480, template="plotly_dark", showlegend=False,
             uirevision='constant'
         )
         plot_3d_placeholder.plotly_chart(fig3d, use_container_width=True, key=f"plot_3d_{st.session_state.current_time}")
@@ -346,48 +346,54 @@ with tab2:
         fig_line.add_trace(go.Scatter(x=st.session_state.time_history, y=st.session_state.core_history, mode='lines', name=f'中心點火源 (Atom {core})', line=dict(color='red', width=3)))
         fig_line.add_trace(go.Scatter(x=st.session_state.time_history, y=st.session_state.edge_history, mode='lines', name=f'最外圍原子 (Atom {edge})', line=dict(color='blue', width=3)))
         
-        # 🚀 效能護城河：將排版參數分行寫，避免字串截斷報錯
+        # 確保折線圖 Y 軸帶有 °C
         fig_line.update_layout(
-            title="📈 核心與外圍原子溫度趨勢",
-            xaxis_title="時間 (秒)",
-            yaxis_title="溫度 (°C)",
-            margin=dict(l=0, r=0, b=0, t=40),
-            height=480,
-            template="plotly_dark",
+            title="📈 核心與外圍原子溫度趨勢 (°C)",
+            xaxis_title="時間 (秒)", yaxis_title="溫度 (°C)",
+            margin=dict(l=0, r=0, b=0, t=40), height=480, template="plotly_dark",
             uirevision='constant'
         )
         plot_line_placeholder.plotly_chart(fig_line, use_container_width=True, key=f"plot_line_{st.session_state.current_time}")
 
+        # 確保 Dataframe 欄位帶有 °C
         df_realtime = pd.DataFrame({
             "粒子編號": [f"Atom {i}" for i in atoms],
-            "即時溫度數據 (°C)": [f"{st.session_state.particle_temps[i]:.2f}" for i in atoms],
+            "即時溫度數據 (°C)": [f"{st.session_state.particle_temps[i]:.2f} °C" for i in atoms],
             "拓樸定位": ["🔥 中心點火源" if i == core else "❄️ 外部邊緣節點" if i == edge else "中圈熱傳導節點" for i in atoms]
         })
         data_grid_placeholder.dataframe(df_realtime.set_index("粒子編號"), use_container_width=True)
 
-    if start_flow:
+    if start_flow and N > 0:
         m, c_heat, dt = 1.0, 1.0, 0.02
-        for frame in range(150):
-            current_t = st.session_state.particle_temps.copy()
-            next_t = current_t.copy()
+        
+        # 🚀 Numpy 矩陣極速運算初始化
+        T_array = np.zeros(N)
+        for i in atoms:
+            T_array[node_to_idx[i]] = st.session_state.particle_temps[i]
             
-            for u, v in G.edges():
-                T_u, T_v = current_t[u], current_t[v]
-                dQ = k_val * (T_u - T_v) * dt / (m * c_heat)
-                next_t[v] += dQ
-                next_t[u] -= dQ
-                
-            st.session_state.particle_temps = next_t
+        for frame in range(150):
+            # 🚀 拋棄緩慢的 for 迴圈，採用 NumPy 矩陣內積瞬間完成全域溫度更新
+            # 公式: T_next = T - k * dt * (Laplacian @ T)
+            dT = -k_val * dt * (L_matrix.dot(T_array)) / (m * c_heat)
+            T_array += dT
+            
             st.session_state.current_time += dt
             
+            # 降幀渲染保持畫面滑順
             if frame % 15 == 0 or frame == 149:
+                # 將 Numpy 陣列存回字典供前端顯示
+                for idx, temp in enumerate(T_array):
+                    st.session_state.particle_temps[idx_to_node[idx]] = temp
+                    
                 st.session_state.time_history.append(st.session_state.current_time)
-                st.session_state.core_history.append(next_t[core])
-                st.session_state.edge_history.append(next_t[edge])
+                st.session_state.core_history.append(st.session_state.particle_temps[core])
+                st.session_state.edge_history.append(st.session_state.particle_temps[edge])
                 
                 render_all_components()
                 time.sleep(sim_speed)
             
-        st.success("✅ 目前階段的時間流動已模擬完畢，系統已達當前平衡。")
+        st.success("✅ 拉普拉斯矩陣極速運算完畢！系統已達熱平衡。")
+    elif start_flow:
+        st.warning("⚠️ 查無原子數據，無法進行模擬。")
     else:
         render_all_components()
