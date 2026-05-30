@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
 import numpy as np
-from scipy.linalg import expm # 🚀 物理學界終極武器：矩陣指數
+from scipy.linalg import expm
 from deep_translator import GoogleTranslator
 import re
 import requests
@@ -16,7 +16,7 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
-st.markdown("搭載 **矩陣指數 (Matrix Exponential) 絕對精確解**，徹底消除數學誤差，享受劇院級流暢熱能擴散體驗。")
+st.markdown("搭載 **矩陣指數絕對精確解** 與 **智慧狀態同步引擎**，滑桿數值 100% 零誤差映射，享受劇院級流暢熱能擴散體驗。")
 
 # ==========================================
 # 核心一：維基百科學術名詞對接引擎
@@ -169,7 +169,9 @@ with st.sidebar:
     sim_duration = st.slider("模擬總時長 (秒)", min_value=3.0, max_value=30.0, value=10.0, step=1.0)
     anim_speed = st.slider("動畫播放速度 (每幀毫秒)", min_value=10, max_value=200, value=40, step=10)
 
-# 初始化狀態機
+# ==========================================
+# 狀態機與【智慧同步引擎】初始化
+# ==========================================
 if 'mol_atoms' not in st.session_state:
     st.session_state.mol_atoms = list(range(10))
     st.session_state.mol_bonds = [(0,4), (0,5), (0,6), (1,4), (1,7), (1,8), (2,5), (2,7), (2,9), (3,6), (3,8), (3,9)]
@@ -179,6 +181,18 @@ if 'mol_atoms' not in st.session_state:
 if 'particle_temps' not in st.session_state:
     st.session_state.particle_temps = {i: env_temp for i in st.session_state.mol_atoms}
     st.session_state.particle_temps[0] = init_temp
+
+# 🚀 核心升級：滑桿監聽器！只要拉動滑桿，強制寫入最新溫度至系統記憶體
+if 'last_env' not in st.session_state: st.session_state.last_env = env_temp
+if 'last_init' not in st.session_state: st.session_state.last_init = init_temp
+
+if st.session_state.last_env != env_temp or st.session_state.last_init != init_temp:
+    atoms = st.session_state.mol_atoms
+    core = st.session_state.core_node
+    st.session_state.particle_temps = {i: env_temp for i in atoms}
+    st.session_state.particle_temps[core] = init_temp
+    st.session_state.last_env = env_temp
+    st.session_state.last_init = init_temp
 
 # 智慧防錯檢索邏輯
 if search_button and user_input:
@@ -231,6 +245,7 @@ if search_button and user_input:
                 st.session_state.edge_node = e_node
                 st.session_state.mol_name = st.session_state.search_data["english_name"]
                 
+                # 換新物質時重置溫度
                 st.session_state.particle_temps = {i: env_temp for i in atoms}
                 st.session_state.particle_temps[c_node] = init_temp
                 
@@ -311,7 +326,7 @@ with tab1:
 # 分頁 2：矩陣指數精確解 + 劇院級大螢幕 
 # ==========================================
 with tab2:
-    st.subheader(f"🔥 {st.session_state.mol_name} - 劇院級熱傳導監控 (矩陣指數精確解)")
+    st.subheader(f"🔥 {st.session_state.mol_name} - 劇院級熱傳導監控 (絕對精確解)")
 
     atoms = st.session_state.mol_atoms
     bonds = st.session_state.mol_bonds
@@ -323,7 +338,7 @@ with tab2:
     with btn_col1:
         start_anim = st.button("⚙️ 生成高畫質動畫底片", type="primary", use_container_width=True)
     with btn_col2:
-        if st.button("🔄 重置初始溫度", use_container_width=True):
+        if st.button("🔄 重置初始溫度 (恢復為滑桿數值)", use_container_width=True):
             st.session_state.particle_temps = {i: env_temp for i in atoms}
             st.session_state.particle_temps[core] = init_temp
             st.rerun()
@@ -364,18 +379,16 @@ with tab2:
         with st.spinner(f"⚡ 啟動高等微積分運算... 正在使用矩陣指數打包 {sim_duration} 秒的絕對精確底片！"):
             m, c_heat = 1.0, 1.0
             
+            # 🚀 取用確保同步的 T_initial
             T_initial = np.array([st.session_state.particle_temps[i] for i in atoms])
             
-            # 生成 150 張影格的時間點
             time_steps = np.linspace(0, sim_duration, num=150)
             
             history_frames = []
             core_hist = []
             edge_hist = []
             
-            # 🚀 Matrix Exponential 瞬間計算任何時間點的精確溫度，零誤差！
             for t in time_steps:
-                # 物理公式: T(t) = exp(-k * t * L) * T_initial
                 transition_matrix = expm(-k_val * t / (m * c_heat) * L_matrix)
                 T_t = transition_matrix.dot(T_initial)
                 
@@ -390,25 +403,21 @@ with tab2:
                 subplot_titles=(f"🔥 {st.session_state.mol_name} 3D 熱傳導", "📈 絕對精確溫度動態變化 (°C)")
             )
             
-            # [Trace 0] 靜態化學鍵
             fig.add_trace(go.Scatter3d(x=edge_x, y=edge_y, z=edge_z, mode='lines', line=dict(color='gray', width=3), hoverinfo='none'), row=1, col=1)
             
-            # 🚀 [Trace 1] 文字標籤全面回歸！(因為演算法變強，瀏覽器現在扛得住了)
             init_T = history_frames[0]
             init_labels = [f"🔥 Core<br>{init_T[node_to_idx[i]]:.1f}°C" if i == core else (f"❄️ Edge<br>{init_T[node_to_idx[i]]:.1f}°C" if i == edge else f"Atom {i}<br>{init_T[node_to_idx[i]]:.1f}°C") for i in atoms]
             
             fig.add_trace(go.Scatter3d(
                 x=node_x, y=node_y, z=node_z, 
-                mode='markers+text', # 🚀 文字標籤回歸
+                mode='markers+text', 
                 text=init_labels, textposition="top center", textfont=dict(size=11, color='white'),
                 marker=dict(size=22, color=init_T, colorscale='Turbo', cmin=env_temp-10, cmax=init_temp, colorbar=dict(title="溫度", thickness=10, x=0.45))
             ), row=1, col=1)
             
-            # [Trace 2 & 3] 初始折線圖
             fig.add_trace(go.Scatter(x=[time_steps[0]], y=[core_hist[0]], mode='lines', name=f'中心點火源', line=dict(color='red', width=3)), row=1, col=2)
             fig.add_trace(go.Scatter(x=[time_steps[0]], y=[edge_hist[0]], mode='lines', name=f'外圍原子', line=dict(color='blue', width=3)), row=1, col=2)
             
-            # 建立雙聯動影格
             anim_frames = []
             for step, t in enumerate(time_steps):
                 t_data = history_frames[step]
@@ -416,7 +425,7 @@ with tab2:
                 
                 anim_frames.append(go.Frame(
                     data=[
-                        go.Scatter3d(marker=dict(color=t_data), text=step_labels), # 🚀 文字與顏色同步更新
+                        go.Scatter3d(marker=dict(color=t_data), text=step_labels), 
                         go.Scatter(x=time_steps[:step+1], y=core_hist[:step+1]),
                         go.Scatter(x=time_steps[:step+1], y=edge_hist[:step+1])
                     ],
@@ -425,11 +434,10 @@ with tab2:
                 ))
             fig.frames = anim_frames
             
-            # 🚀 劇院級排版設定：將高度拉到 750px，畫面超巨大！
             fig.update_layout(
                 scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False),
                 template="plotly_dark", margin=dict(l=0, r=0, b=0, t=40), 
-                height=750, # 🚀 高度巨量提升
+                height=750, 
                 updatemenus=[dict(
                     type="buttons", showactive=False, y=-0.05, x=0.5, xanchor="center", yanchor="top", direction="left",
                     buttons=[
@@ -441,13 +449,40 @@ with tab2:
             fig.update_xaxes(range=[0, sim_duration], title="時間 (秒)", row=1, col=2)
             fig.update_yaxes(range=[env_temp - 10, init_temp + 20], title="溫度 (°C)", row=1, col=2)
 
-            # 🚀 捨棄會屏蔽全螢幕的沙盒，完美回歸原生渲染！
             st.plotly_chart(fig, use_container_width=True, key="anim_dashboard")
             
-            # 更新狀態機至最終結果
+            # 動畫演化結束後，將最終冷卻溫度存回記憶體
             for i in atoms: st.session_state.particle_temps[i] = history_frames[-1][node_to_idx[i]]
             st.success("✅ 電影封裝完成！現在您可以隨意使用右上方【⤢】全螢幕放大，放大後依舊能完美播放！")
 
     else:
-        # 初始狀態預覽
-        st.info("💡 請點擊上方「⚙️ 生成高畫質動畫底片」按鈕來啟動矩陣指數運算。")
+        # 初始狀態預覽：完美呈現滑桿設定的數值
+        col_visual, col_chart = st.columns([1.4, 1])
+        
+        node_colors = [st.session_state.particle_temps[i] for i in atoms]
+        node_labels = []
+        for i in atoms:
+            prefix = "🔥 Core" if i == core else ("❄️ Edge" if i == edge else f"Atom {i}")
+            node_labels.append(f"{prefix}<br>{st.session_state.particle_temps[i]:.1f}°C")
+            
+        fig3d = go.Figure()
+        fig3d.add_trace(go.Scatter3d(x=edge_x, y=edge_y, z=edge_z, mode='lines', line=dict(color='gray', width=3), hoverinfo='none'))
+        fig3d.add_trace(go.Scatter3d(
+            x=node_x, y=node_y, z=node_z, mode='markers+text',
+            text=node_labels, textposition="top center", textfont=dict(size=11, color='white'),
+            marker=dict(size=24, color=node_colors, colorscale='Turbo', cmin=env_temp-10, cmax=init_temp,
+                        colorbar=dict(title="溫度 (°C)", thickness=15), line=dict(width=2, color='white'))
+        ))
+        fig3d.update_layout(
+            title=f"🛑 目前狀態為靜止預覽 (等待生成)",
+            scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False),
+            margin=dict(l=0, r=0, b=0, t=40), height=480, template="plotly_dark", showlegend=False
+        )
+        with col_visual: st.plotly_chart(fig3d, use_container_width=True)
+
+        fig_line = go.Figure()
+        fig_line.update_layout(
+            title="📈 核心與外圍原子溫度趨勢 (°C)", xaxis_title="時間 (秒)", yaxis_title="溫度 (°C)",
+            margin=dict(l=0, r=0, b=0, t=40), height=480, template="plotly_dark"
+        )
+        with col_chart: st.plotly_chart(fig_line, use_container_width=True)
