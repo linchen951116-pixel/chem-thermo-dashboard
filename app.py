@@ -16,7 +16,7 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
-st.markdown("搭載 **矩陣指數絕對精確解** 與 **智慧狀態同步引擎**，滑桿數值 100% 零誤差映射，享受劇院級流暢熱能擴散體驗。")
+st.markdown("搭載 **HTML5 原生全螢幕黑科技** 與 **矩陣指數精確解**，徹底突破網頁框架限制，享受永不當機的劇院級熱傳導動畫。")
 
 # ==========================================
 # 核心一：維基百科學術名詞對接引擎
@@ -169,9 +169,7 @@ with st.sidebar:
     sim_duration = st.slider("模擬總時長 (秒)", min_value=3.0, max_value=30.0, value=10.0, step=1.0)
     anim_speed = st.slider("動畫播放速度 (每幀毫秒)", min_value=10, max_value=200, value=40, step=10)
 
-# ==========================================
-# 狀態機與【智慧同步引擎】初始化
-# ==========================================
+# 初始化與同步引擎
 if 'mol_atoms' not in st.session_state:
     st.session_state.mol_atoms = list(range(10))
     st.session_state.mol_bonds = [(0,4), (0,5), (0,6), (1,4), (1,7), (1,8), (2,5), (2,7), (2,9), (3,6), (3,8), (3,9)]
@@ -182,10 +180,8 @@ if 'particle_temps' not in st.session_state:
     st.session_state.particle_temps = {i: env_temp for i in st.session_state.mol_atoms}
     st.session_state.particle_temps[0] = init_temp
 
-# 🚀 核心升級：滑桿監聽器！只要拉動滑桿，強制寫入最新溫度至系統記憶體
 if 'last_env' not in st.session_state: st.session_state.last_env = env_temp
 if 'last_init' not in st.session_state: st.session_state.last_init = init_temp
-
 if st.session_state.last_env != env_temp or st.session_state.last_init != init_temp:
     atoms = st.session_state.mol_atoms
     core = st.session_state.core_node
@@ -194,14 +190,12 @@ if st.session_state.last_env != env_temp or st.session_state.last_init != init_t
     st.session_state.last_env = env_temp
     st.session_state.last_init = init_temp
 
-# 智慧防錯檢索邏輯
 if search_button and user_input:
     with st.spinner("🧠 系統正在調閱學術詞典並重建分子拓樸..."):
         try:
             english_name = user_input
             if contains_chinese(user_input) or user_input in LOCAL_CHEM_DICT:
-                if user_input in LOCAL_CHEM_DICT:
-                    english_name = LOCAL_CHEM_DICT[user_input]
+                if user_input in LOCAL_CHEM_DICT: english_name = LOCAL_CHEM_DICT[user_input]
                 else:
                     wiki_name = translate_via_wikipedia(user_input)
                     if wiki_name: english_name = wiki_name
@@ -245,15 +239,13 @@ if search_button and user_input:
                 st.session_state.edge_node = e_node
                 st.session_state.mol_name = st.session_state.search_data["english_name"]
                 
-                # 換新物質時重置溫度
                 st.session_state.particle_temps = {i: env_temp for i in atoms}
                 st.session_state.particle_temps[c_node] = init_temp
                 
         except Exception as e:
             st.error("⚠️ 檢索過程遭遇異常，請檢查拼寫後再試！")
 
-# --- 雙分頁介面 ---
-tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 雙聯動極速動畫渲染台"])
+tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 原生全螢幕動態熱傳導台"])
 
 # ==========================================
 # 分頁 1：化學百科與 SDS 危害報告 
@@ -323,7 +315,7 @@ with tab1:
         st.info("💡 請在左側輸入化學式或物質名稱，並按下「🔍 執行數據檢索」來啟動百科。")
 
 # ==========================================
-# 分頁 2：矩陣指數精確解 + 劇院級大螢幕 
+# 分頁 2：原生全螢幕防當機動態熱傳導台
 # ==========================================
 with tab2:
     st.subheader(f"🔥 {st.session_state.mol_name} - 劇院級熱傳導監控 (絕對精確解)")
@@ -342,8 +334,6 @@ with tab2:
             st.session_state.particle_temps = {i: env_temp for i in atoms}
             st.session_state.particle_temps[core] = init_temp
             st.rerun()
-            
-    st.caption("💡 提示：點擊右上方 **⤢ 按鈕** 即可展開為全螢幕。本次升級保證全螢幕下依然可完美播放！")
 
     # --- 建立空間幾何拓樸 ---
     G = nx.Graph()
@@ -373,15 +363,12 @@ with tab2:
     node_to_idx = {node: idx for idx, node in enumerate(atoms)}
 
     # ==========================================
-    # 核心黑科技：矩陣指數 (Matrix Exponential) 絕對精確運算
+    # 核心黑科技：矩陣指數計算 + 原生瀏覽器全螢幕沙盒
     # ==========================================
     if start_anim and N > 0:
         with st.spinner(f"⚡ 啟動高等微積分運算... 正在使用矩陣指數打包 {sim_duration} 秒的絕對精確底片！"):
             m, c_heat = 1.0, 1.0
-            
-            # 🚀 取用確保同步的 T_initial
             T_initial = np.array([st.session_state.particle_temps[i] for i in atoms])
-            
             time_steps = np.linspace(0, sim_duration, num=150)
             
             history_frames = []
@@ -391,7 +378,6 @@ with tab2:
             for t in time_steps:
                 transition_matrix = expm(-k_val * t / (m * c_heat) * L_matrix)
                 T_t = transition_matrix.dot(T_initial)
-                
                 history_frames.append(T_t)
                 core_hist.append(T_t[node_to_idx[core]])
                 edge_hist.append(T_t[node_to_idx[edge]])
@@ -422,7 +408,6 @@ with tab2:
             for step, t in enumerate(time_steps):
                 t_data = history_frames[step]
                 step_labels = [f"🔥 Core<br>{t_data[node_to_idx[i]]:.1f}°C" if i == core else (f"❄️ Edge<br>{t_data[node_to_idx[i]]:.1f}°C" if i == edge else f"Atom {i}<br>{t_data[node_to_idx[i]]:.1f}°C") for i in atoms]
-                
                 anim_frames.append(go.Frame(
                     data=[
                         go.Scatter3d(marker=dict(color=t_data), text=step_labels), 
@@ -437,7 +422,6 @@ with tab2:
             fig.update_layout(
                 scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False),
                 template="plotly_dark", margin=dict(l=0, r=0, b=0, t=40), 
-                height=750, 
                 updatemenus=[dict(
                     type="buttons", showactive=False, y=-0.05, x=0.5, xanchor="center", yanchor="top", direction="left",
                     buttons=[
@@ -449,16 +433,59 @@ with tab2:
             fig.update_xaxes(range=[0, sim_duration], title="時間 (秒)", row=1, col=2)
             fig.update_yaxes(range=[env_temp - 10, init_temp + 20], title="溫度 (°C)", row=1, col=2)
 
-            st.plotly_chart(fig, use_container_width=True, key="anim_dashboard")
+            # 🚀 霸體防禦黑科技：將 Plotly 打包，並植入瀏覽器原生 Fullscreen API 按鈕
+            raw_html = fig.to_html(include_plotlyjs="cdn", full_html=False)
             
-            # 動畫演化結束後，將最終冷卻溫度存回記憶體
+            custom_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body {{ margin: 0; padding: 0; background-color: #111111; overflow: hidden; }}
+                    #fs-container {{ position: relative; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; background: #111111; }}
+                    .fs-btn {{
+                        position: absolute; top: 15px; right: 15px; z-index: 9999;
+                        background: rgba(255, 255, 255, 0.1); color: #fff;
+                        border: 1px solid rgba(255,255,255,0.4); padding: 8px 16px;
+                        border-radius: 6px; cursor: pointer; font-size: 14px;
+                        transition: all 0.2s; backdrop-filter: blur(5px);
+                    }}
+                    .fs-btn:hover {{ background: rgba(255, 255, 255, 0.3); transform: scale(1.05); }}
+                </style>
+            </head>
+            <body>
+                <div id="fs-container">
+                    <button class="fs-btn" onclick="toggleFS()">⤢ 劇院級全螢幕</button>
+                    <div style="width: 100%; height: 100%;">
+                        {raw_html}
+                    </div>
+                </div>
+                <script>
+                    function toggleFS() {{
+                        let elem = document.getElementById("fs-container");
+                        if (!document.fullscreenElement) {{
+                            if (elem.requestFullscreen) {{ elem.requestFullscreen(); }}
+                            else if (elem.webkitRequestFullscreen) {{ elem.webkitRequestFullscreen(); }}
+                            else if (elem.msRequestFullscreen) {{ elem.msRequestFullscreen(); }}
+                        }} else {{
+                            if (document.exitFullscreen) {{ document.exitFullscreen(); }}
+                            else if (document.webkitExitFullscreen) {{ document.webkitExitFullscreen(); }}
+                            else if (document.msExitFullscreen) {{ document.msExitFullscreen(); }}
+                        }}
+                    }}
+                </script>
+            </body>
+            </html>
+            """
+            
+            # 使用高容器渲染
+            components.html(custom_html, height=750)
+            
             for i in atoms: st.session_state.particle_temps[i] = history_frames[-1][node_to_idx[i]]
-            st.success("✅ 電影封裝完成！現在您可以隨意使用右上方【⤢】全螢幕放大，放大後依舊能完美播放！")
+            st.success("✅ 電影封裝完成！請直接點擊圖表右上方的【⤢ 劇院級全螢幕】，放大後點擊左下方的播放鍵，絕對不會再卡死！")
 
     else:
-        # 初始狀態預覽：完美呈現滑桿設定的數值
         col_visual, col_chart = st.columns([1.4, 1])
-        
         node_colors = [st.session_state.particle_temps[i] for i in atoms]
         node_labels = []
         for i in atoms:
