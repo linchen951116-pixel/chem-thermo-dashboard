@@ -170,7 +170,7 @@ with tab1:
                         viewer.setStyle({style: {}})
                         viewer.setBackgroundColor('#f0f2f6')
                         viewer.zoomTo()
-                        showmol(viewer, height=350, width=450)
+                        components.html(viewer._make_html(), height=350, width=450)
                         
                         st.markdown("---")
                         st.subheader("🧮 計算結構屬性")
