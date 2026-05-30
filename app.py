@@ -330,5 +330,64 @@ with tab2:
                         colorbar=dict(title="溫度 (°C)", thickness=15), line=dict(width=2, color='white'))
         ))
         
-        # 🚀 效能護城河：加入 uirevision='constant'
-        fig3d.update_layout(title=f"⏳ 當前累積流動時間
+        # 🚀 效能護城河：將排版參數分行寫，避免字串截斷報錯
+        fig3d.update_layout(
+            title=f"⏳ 當前累積流動時間: {st.session_state.current_time:.2f} 秒",
+            scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False),
+            margin=dict(l=0, r=0, b=0, t=40),
+            height=480,
+            template="plotly_dark",
+            showlegend=False,
+            uirevision='constant'
+        )
+        plot_3d_placeholder.plotly_chart(fig3d, use_container_width=True, key=f"plot_3d_{st.session_state.current_time}")
+
+        fig_line = go.Figure()
+        fig_line.add_trace(go.Scatter(x=st.session_state.time_history, y=st.session_state.core_history, mode='lines', name=f'中心點火源 (Atom {core})', line=dict(color='red', width=3)))
+        fig_line.add_trace(go.Scatter(x=st.session_state.time_history, y=st.session_state.edge_history, mode='lines', name=f'最外圍原子 (Atom {edge})', line=dict(color='blue', width=3)))
+        
+        # 🚀 效能護城河：將排版參數分行寫，避免字串截斷報錯
+        fig_line.update_layout(
+            title="📈 核心與外圍原子溫度趨勢",
+            xaxis_title="時間 (秒)",
+            yaxis_title="溫度 (°C)",
+            margin=dict(l=0, r=0, b=0, t=40),
+            height=480,
+            template="plotly_dark",
+            uirevision='constant'
+        )
+        plot_line_placeholder.plotly_chart(fig_line, use_container_width=True, key=f"plot_line_{st.session_state.current_time}")
+
+        df_realtime = pd.DataFrame({
+            "粒子編號": [f"Atom {i}" for i in atoms],
+            "即時溫度數據 (°C)": [f"{st.session_state.particle_temps[i]:.2f}" for i in atoms],
+            "拓樸定位": ["🔥 中心點火源" if i == core else "❄️ 外部邊緣節點" if i == edge else "中圈熱傳導節點" for i in atoms]
+        })
+        data_grid_placeholder.dataframe(df_realtime.set_index("粒子編號"), use_container_width=True)
+
+    if start_flow:
+        m, c_heat, dt = 1.0, 1.0, 0.02
+        for frame in range(150):
+            current_t = st.session_state.particle_temps.copy()
+            next_t = current_t.copy()
+            
+            for u, v in G.edges():
+                T_u, T_v = current_t[u], current_t[v]
+                dQ = k_val * (T_u - T_v) * dt / (m * c_heat)
+                next_t[v] += dQ
+                next_t[u] -= dQ
+                
+            st.session_state.particle_temps = next_t
+            st.session_state.current_time += dt
+            
+            if frame % 15 == 0 or frame == 149:
+                st.session_state.time_history.append(st.session_state.current_time)
+                st.session_state.core_history.append(next_t[core])
+                st.session_state.edge_history.append(next_t[edge])
+                
+                render_all_components()
+                time.sleep(sim_speed)
+            
+        st.success("✅ 目前階段的時間流動已模擬完畢，系統已達當前平衡。")
+    else:
+        render_all_components()
