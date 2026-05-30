@@ -10,11 +10,11 @@ import re
 import requests
 import streamlit.components.v1 as components
 
-# 網頁基礎設定
+# 網頁基礎設定 (必須在最第一行)
 st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
-st.markdown("搭載 **維基百科學術名詞對接引擎** 與 **真實分子拓樸解析**，熱傳導模擬將完全依據真實化學鍵進行推演。")
+st.markdown("搭載 **維基百科對接引擎** 與 **真實分子拓樸解析**，熱傳導模擬將完全依據真實化學鍵推演，並支援高幀率流暢動畫。")
 
 # ==========================================
 # 核心一：維基百科學術名詞對接引擎
@@ -113,17 +113,19 @@ with st.sidebar:
     st.markdown("---")
     st.subheader("🔥 2. 熱傳導動態模擬參數")
     env_temp = st.slider("環境溫度設定 (°C)", min_value=-20.0, max_value=60.0, value=25.0, step=0.5)
-    init_temp = st.slider("中心粒子點火溫度 (°C)", min_value=50.0, max_value=500.0, value=300.0, step=10.0)
+    init_temp = st.slider("中心點火溫度 (°C)", min_value=50.0, max_value=500.0, value=300.0, step=10.0)
     k_val = st.slider("熱傳導係數 (k)", min_value=0.01, max_value=0.50, value=0.15, step=0.01)
     sim_speed = st.slider("時間流動速度 (幀延遲秒數)", min_value=0.01, max_value=0.50, value=0.05, step=0.01)
 
-# 初始化真實分子拓樸資料
+# ==========================================
+# 初始化真實分子拓樸狀態機
+# ==========================================
 if 'mol_atoms' not in st.session_state:
     st.session_state.mol_atoms = list(range(10))
     st.session_state.mol_bonds = [(0,4), (0,5), (0,6), (1,4), (1,7), (1,8), (2,5), (2,7), (2,9), (3,6), (3,8), (3,9)]
     st.session_state.core_node = 0
     st.session_state.edge_node = 9
-    st.session_state.mol_name = "預設測試結構 (金剛烷類)"
+    st.session_state.mol_name = "預設測試結構"
 
 # --- 雙分頁介面 ---
 tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 真實分子拓樸熱傳導台"])
@@ -160,7 +162,7 @@ with tab1:
                 if compounds:
                     c = compounds[0]
                     
-                    # 🚀 [關鍵修復] 解析真實原子與化學鍵
+                    # 🚀 解析真實原子與化學鍵
                     st.session_state.mol_atoms = [atom.aid for atom in c.atoms]
                     st.session_state.mol_bonds = [(bond.aid1, bond.aid2) for bond in c.bonds]
                     st.session_state.mol_name = english_name.capitalize()
@@ -178,13 +180,13 @@ with tab1:
                         st.session_state.core_node = st.session_state.mol_atoms[0] if st.session_state.mol_atoms else 0
                         st.session_state.edge_node = st.session_state.mol_atoms[-1] if st.session_state.mol_atoms else 0
                     
-                    # 強制重置熱傳導時間與溫度狀態
+                    # 強制重置熱傳導狀態機
                     st.session_state.current_time = 0.0
                     st.session_state.particle_temps = {i: env_temp for i in st.session_state.mol_atoms}
                     st.session_state.particle_temps[st.session_state.core_node] = init_temp
                     
                     sds_data = fetch_sds_and_properties(c.cid)
-                    st.success(f"✅ 檢索成功！物質映射：「**{english_name.capitalize()}**」 | PubChem CID: {c.cid} | 真實原子數: {len(st.session_state.mol_atoms)}")
+                    st.success(f"✅ 檢索成功！物質映射：「**{english_name.capitalize()}**」 | 真實原子數: {len(st.session_state.mol_atoms)}")
                     
                     col_left, col_right = st.columns([1, 1.3])
                     with col_left:
@@ -193,6 +195,8 @@ with tab1:
                         viewer.setStyle({style: {}})
                         viewer.setBackgroundColor('#f0f2f6')
                         viewer.zoomTo()
+                        
+                        # 🚀 原生 HTML 渲染，拔除 stmol 毒瘤
                         components.html(viewer._make_html(), height=350, width=450)
                         
                         st.markdown("---")
@@ -238,12 +242,11 @@ with tab1:
         st.info("💡 請在左側輸入物質名稱，並按下「🔍 執行數據檢索」來啟動百科。")
 
 # ==========================================
-# 分頁 2：真實拓樸動態熱傳導模擬台
+# 分頁 2：高幀率真實拓樸動態熱傳導台
 # ==========================================
 with tab2:
     st.subheader(f"🔥 {st.session_state.mol_name} - 真實分子熱能擴散監控")
 
-    # 確保系統讀取的是當前分子的原子陣列
     atoms = st.session_state.mol_atoms
     bonds = st.session_state.mol_bonds
     core = st.session_state.core_node
@@ -284,12 +287,13 @@ with tab2:
     with col_chart:
         plot_line_placeholder = st.empty()
 
-    # 建立「真實」圖論模型
+    st.markdown("### 🔢 每個粒子的即時溫度數據面板")
+    data_grid_placeholder = st.empty()
+
     G = nx.Graph()
     G.add_nodes_from(atoms)
     G.add_edges_from(bonds)
     
-    # 若是單一原子(如氬氣)，給予預設位置避免崩潰
     if len(atoms) > 1:
         pos_3d = nx.spring_layout(G, dim=3, seed=42)
     else:
@@ -309,7 +313,6 @@ with tab2:
         node_z = [pos_3d[i][2] for i in G.nodes()]
         node_colors = [st.session_state.particle_temps[i] for i in G.nodes()]
         
-        # 標示出中心原子與邊緣原子
         node_labels = []
         for i in G.nodes():
             if i == core: prefix = "🔥 Core"
@@ -326,39 +329,6 @@ with tab2:
             marker=dict(size=24, color=node_colors, colorscale='Turbo', cmin=-20, cmax=500,
                         colorbar=dict(title="溫度 (°C)", thickness=15), line=dict(width=2, color='white'))
         ))
-        fig3d.update_layout(title=f"⏳ 當前累積流動時間: {st.session_state.current_time:.2f} 秒",
-                            scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False),
-                            margin=dict(l=0, r=0, b=0, t=40), height=480, template="plotly_dark", showlegend=False)
-        plot_3d_placeholder.plotly_chart(fig3d, use_container_width=True, key=f"plot_3d_{st.session_state.current_time}")
-
-        fig_line = go.Figure()
-        fig_line.add_trace(go.Scatter(x=st.session_state.time_history, y=st.session_state.core_history, mode='lines', name=f'中心點火源 (Atom {core})', line=dict(color='red', width=3)))
-        fig_line.add_trace(go.Scatter(x=st.session_state.time_history, y=st.session_state.edge_history, mode='lines', name=f'最外圍原子 (Atom {edge})', line=dict(color='blue', width=3)))
-        fig_line.update_layout(title="📈 核心與外圍原子溫度趨勢", xaxis_title="時間 (秒)", yaxis_title="溫度 (°C)",
-                               margin=dict(l=0, r=0, b=0, t=40), height=480, template="plotly_dark")
-        plot_line_placeholder.plotly_chart(fig_line, use_container_width=True, key=f"plot_line_{st.session_state.current_time}")
-
-    if start_flow:
-        m, c_heat, dt = 1.0, 1.0, 0.02
-        for frame in range(150):
-            current_t = st.session_state.particle_temps.copy()
-            next_t = current_t.copy()
-            for u, v in G.edges():
-                T_u, T_v = current_t[u], current_t[v]
-                # 歐拉法熱傳遞公式
-                dQ = k_val * (T_u - T_v) * dt / (m * c_heat)
-                next_t[v] += dQ
-                next_t[u] -= dQ
-            st.session_state.particle_temps = next_t
-            st.session_state.current_time += dt
-            if frame % 3 == 0:
-                st.session_state.time_history.append(st.session_state.current_time)
-                st.session_state.core_history.append(next_t[core])
-                st.session_state.edge_history.append(next_t[edge])
-            
-            render_all_components()
-            time.sleep(sim_speed)
-            
-        st.success("✅ 目前階段的時間流動已模擬完畢，系統已達當前平衡。")
-    else:
-        render_all_components()
+        
+        # 🚀 效能護城河：加入 uirevision='constant'
+        fig3d.update_layout(title=f"⏳ 當前累積流動時間
