@@ -109,7 +109,7 @@ def fix_chemical_formula(formula):
     return formula
 
 # ==========================================
-# 核心二": 數據抓取與智慧正規化引擎 (主引擎)
+# 核心二: 數據抓取與智慧正規化引擎 (主引擎)
 # ==========================================
 def simplify_physical_state(text):
     if not text or text == "無相關文獻數據": return text
@@ -262,7 +262,6 @@ def run_search(query_name):
     st.session_state.particle_temps[st.session_state.core_node] = 500.0
     return True, "Success"
 
-# 🚀 預設首頁直接載入水分子資料
 if 'initialized' not in st.session_state:
     run_search("水") 
     st.session_state.initialized = True
@@ -371,15 +370,19 @@ with tab2:
                     anim_frames.append(go.Frame(data=[go.Scatter3d(marker=dict(color=h, cmin=env_temp-5, cmax=init_temp+5), text=step_labels)], name=f"f{step}", traces=[len(st.session_state.mol_bonds)]))
                 fig3d.frames = anim_frames
 
-                fig3d.update_layout(height=800, autosize=False, title="🔥 真實 3D 空間熱擴散", template="plotly_dark", margin=dict(l=10, r=10, b=10, t=40), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False), updatemenus=[dict(type="buttons", active=-1, showactive=False, y=-0.05, x=0.5, xanchor="center", direction="left", buttons=[dict(label="▶️ 播放聯動", method="animate", args=[None, dict(frame=dict(duration=anim_speed, redraw=True), fromcurrent=True, mode="immediate", transition=dict(duration=0))]), dict(label="⏸️ 暫停", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate", transition=dict(duration=0))])])])
+                # 🚀 重新加上 autosize=True，讓圖表寬度能自動填滿外框，杜絕水平卷軸
+                fig3d.update_layout(autosize=True, height=800, title="🔥 真實 3D 空間熱擴散", template="plotly_dark", margin=dict(l=10, r=10, b=10, t=40), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False), updatemenus=[dict(type="buttons", active=-1, showactive=False, y=-0.05, x=0.5, xanchor="center", direction="left", buttons=[dict(label="▶️ 播放聯動", method="animate", args=[None, dict(frame=dict(duration=anim_speed, redraw=True), fromcurrent=True, mode="immediate", transition=dict(duration=0))]), dict(label="⏸️ 暫停", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate", transition=dict(duration=0))])])])
                 
                 fig2d = go.Figure()
                 fig2d.add_trace(go.Scatter(x=[times[0]], y=[c_hist[0]], mode='lines', name="中心點火源", line=dict(color='red', width=3)))
                 fig2d.add_trace(go.Scatter(x=[times[0]], y=[e_hist[0]], mode='lines', name="外圍測溫點", line=dict(color='blue', width=3)))
-                fig2d.update_layout(height=450, autosize=False, title="📈 絕對精確溫度動態變化 (°C)", template="plotly_dark", margin=dict(l=60, r=20, b=80, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[env_temp-10, init_temp+20], title="溫度 (°C)"))
                 
-                html_3d = fig3d.to_html(include_plotlyjs='cdn', full_html=False, div_id='plot-3d')
-                html_2d = fig2d.to_html(include_plotlyjs=False, full_html=False, div_id='plot-2d')
+                # 🚀 重新加上 autosize=True，並設定超寬裕的 margin: l=70, b=60，徹底消滅被吃掉的字體
+                fig2d.update_layout(autosize=True, height=450, title="📈 絕對精確溫度動態變化 (°C)", template="plotly_dark", margin=dict(l=70, r=20, b=60, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[env_temp-10, init_temp+20], title="溫度 (°C)"))
+                
+                # 🚀 加上 config={'responsive': True} 讓 Plotly 正式聽從 CSS 網格指揮
+                html_3d = fig3d.to_html(include_plotlyjs='cdn', full_html=False, div_id='plot-3d', config={'responsive': True})
+                html_2d = fig2d.to_html(include_plotlyjs=False, full_html=False, div_id='plot-2d', config={'responsive': True})
                 
                 history_json = json.dumps([h.tolist() for h in history])
                 time_json = json.dumps(times.tolist())
@@ -414,7 +417,8 @@ with tab2:
                             grid-column: 2 / 3;
                             grid-row: 1 / 2;
                             border-bottom: 2px solid #333;
-                            overflow-y: auto; 
+                            /* 🚀 強制裁切，絕對不准長出卷軸 */
+                            overflow: hidden; 
                         }
                         #bottom-right-pane {
                             grid-column: 2 / 3;
@@ -422,6 +426,11 @@ with tab2:
                             overflow-y: auto;
                             background: #1a1a1a;
                             padding: 15px;
+                        }
+                        /* 🚀 強迫 Plotly 畫布 100% 填滿不溢出 */
+                        .js-plotly-plot, .plot-container {
+                            width: 100% !important;
+                            height: 100% !important;
                         }
                     </style>
                 </head>
@@ -475,6 +484,12 @@ with tab2:
                                 });
                             }
                         }, 200);
+
+                        window.onload = function() {
+                            setTimeout(function() {
+                                window.dispatchEvent(new Event('resize'));
+                            }, 500);
+                        };
                     </script>
                 </body>
                 </html>
