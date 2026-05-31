@@ -16,7 +16,7 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
-st.markdown("搭載 **標準 CSS Grid 九宮格** 與 **維度實體攔截機制**。根絕一切排版破裂與 None 錯誤，確保 100% 科學嚴謹性！")
+st.markdown("搭載 **自適應 Flexbox 網格防護** 與 **真實維度安全攔截機制**。根絕畫面重疊，確保物理模擬嚴謹且排版絕對穩定！")
 
 # ==========================================
 # 核心一：維基百科學術名詞對接與修正引擎
@@ -116,7 +116,7 @@ def fetch_sds_and_properties(cid):
     return props
 
 # ==========================================
-# 核心三：雙軌檢索邏輯 (修復 None 顯示問題與 2D 判斷)
+# 核心三：雙軌檢索邏輯 (精準判斷 3D 實體座標)
 # ==========================================
 def run_search(query_name):
     english_name = query_name
@@ -129,7 +129,6 @@ def run_search(query_name):
                 try: english_name = GoogleTranslator(source='auto', target='en').translate(query_name)
                 except: return False, "翻譯服務暫時不可用"
 
-    # 抓取基本屬性 (避免 None)
     std_compounds = pcp.get_compounds(english_name, 'name')
     if not std_compounds: return False, f"⚠️ 資料庫無法配對「{english_name}」"
     
@@ -146,10 +145,9 @@ def run_search(query_name):
             if hasattr(atom, 'x') and atom.x is not None:
                 real_coords[atom.aid] = [atom.x, atom.y, atom.z]
     
-    # 🚀 嚴格維度判斷：即便有 3D 紀錄，只要沒抓到立體座標，就強制歸類為 2D 平面！
+    # 🚀 安全防護回歸本質：有抓到真實 3D 空間座標才算 3D，否則就是 2D (完美阻斷無機鹽)
     dim_type = "3D 立體" if len(real_coords) > 0 else "2D 平面"
     
-    # 🚀 根絕 None 的問題 (若 API 沒回傳，給予預設文字)
     mw = c_std.molecular_weight
     tpsa = c_std.tpsa
     hbd = c_std.h_bond_donor_count
@@ -175,7 +173,6 @@ def run_search(query_name):
     st.session_state.mol_coords = real_coords
     st.session_state.mol_name = english_name.capitalize()
     
-    # 自動分析中心與外圍
     degree = {}
     for a, b in st.session_state.mol_bonds:
         degree[a] = degree.get(a, 0) + 1; degree[b] = degree.get(b, 0) + 1
@@ -218,7 +215,7 @@ if search_button and user_input:
 tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 網格分離式動畫儀表板"])
 
 # ==========================================
-# 分頁 1：化學百科 (完全還原照片中的無 None 介面)
+# 分頁 1：化學百科 (還原乾淨雙欄排版)
 # ==========================================
 with tab1:
     sd = st.session_state.search_data
@@ -232,7 +229,7 @@ with tab1:
                 view = py3Dmol.view(width=400, height=300)
                 view.addModel(res.text, "sdf")
                 view.setStyle({style: {}, 'sphere': {'radius': 0.2}})
-                view.setBackgroundColor('#f0f2f6') # 使用亮色背景呼應圖片
+                view.setBackgroundColor('#f0f2f6') 
                 view.zoomTo()
                 components.html(view._make_html().replace("http://", "https://"), height=300)
             else:
@@ -279,17 +276,17 @@ with tab1:
 # 分頁 2：網格聯動戰情室 (防破版 + 2D 絕對攔截)
 # ==========================================
 with tab2:
-    # 🚀 維度安全阻斷機制：只要是 2D 物質，絕對不允許進行 3D 熱傳導！
+    # 🚀 維度安全阻斷機制：只要沒有 3D 實體座標，絕對不允許進行熱傳導！
     if sd['dim_type'] == "2D 平面":
-        st.warning("⚠️ 系統安全攔截：偵測到當前物質僅具備 2D 平面結構，已自動阻斷 3D 熱傳導模擬。")
+        st.warning("⚠️ 系統安全攔截：偵測到當前物質僅具備 2D 平面結構數據，已自動阻斷 3D 熱傳導模擬。")
         st.info("""
         💡 **科學嚴謹性防護說明：**
         由於本系統採用 **拉普拉斯矩陣之偏微分方程 (Matrix Exponential)** 進行熱傳導推演，運算高度依賴分子在真實世界中的物理空間座標 ($x, y, z$)。
         
-        當前檢索的物質（如明礬、無機鹽類或僅有平面紀錄之分子）缺乏 3D 空間數據。若強行計算會導致物理意義錯誤，並引發 WebGL 畫布崩潰（如畫面切斷、溢出或死機）。
+        當前檢索的物質（如明礬、無機鹽類或僅有平面紀錄之大分子）缺乏真實 3D 空間數據。若強行計算會導致物理意義錯誤，並引發 WebGL 畫布崩潰（畫面切斷或死機）。
         
         **👉 解決方案：**
-        這不是 Bug！請在左側重新檢索具備立體座標的分子（例如：**阿斯匹靈**、**咖啡酸**、**水**、**苯**），即可解鎖流暢的 3D 動態模擬！
+        請在左側重新檢索具備立體座標的共價分子（例如：**阿斯匹靈**、**咖啡酸**、**水**、**苯**），即可解鎖流暢的 3D 動態模擬！
         """)
     else:
         st.subheader(f"🔥 {st.session_state.mol_name} - 3D 矩陣指數動態傳導戰情室")
@@ -305,11 +302,11 @@ with tab2:
                 times = np.linspace(0, sim_duration, 100)
                 
                 # 計算時間擴散矩陣
-                history = [expm(-k_val * t * L).dot(T0) for t in times]
+                history = [expm(-k_val * t * 1.0 * L).dot(T0) for t in times]
                 c_hist = [h[st.session_state.mol_atoms.index(st.session_state.core_node)] for h in history]
                 e_hist = [h[st.session_state.mol_atoms.index(st.session_state.edge_node)] for h in history]
                 
-                # 🚀 建立 3D 圖表 (去除文字標籤，確保畫面像截圖 162955 一樣乾淨)
+                # 🚀 建立乾淨的 3D 圖表 (移除常駐文字，改為 hover 顯示)
                 fig3d = go.Figure()
                 p3d = st.session_state.mol_coords
                 for b in st.session_state.mol_bonds:
@@ -325,13 +322,17 @@ with tab2:
                 ))
                 
                 fig3d.frames = [go.Frame(data=[go.Scatter3d(marker=dict(color=h))], name=f"f{i}", traces=[len(st.session_state.mol_bonds)]) for i, h in enumerate(history)]
+                # 🚀 啟動 responsive 自動縮放
                 fig3d.update_layout(autosize=True, title="🔥 真實 3D 空間熱擴散", template="plotly_dark", margin=dict(l=10, r=10, b=10, t=40), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False), updatemenus=[dict(type="buttons", active=-1, showactive=False, y=-0.05, x=0.5, xanchor="center", direction="left", buttons=[dict(label="▶️ 播放聯動", method="animate", args=[None, dict(frame=dict(duration=anim_speed, redraw=True), fromcurrent=True, mode="immediate", transition=dict(duration=0))]), dict(label="⏸️ 暫停", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate", transition=dict(duration=0))])])])
                 
-                # 🚀 建立 2D 曲線圖 (強制拓寬左邊與下邊邊距 l=60, b=65，保證座標軸不被裁切)
+                # 🚀 建立 2D 曲線圖 (強制拓寬左下邊距 l=60, b=60，保證座標軸不被裁切)
                 fig2d = go.Figure()
                 fig2d.add_trace(go.Scatter(x=[times[0]], y=[c_hist[0]], mode='lines', name="中心點火源", line=dict(color='red', width=3)))
                 fig2d.add_trace(go.Scatter(x=[times[0]], y=[e_hist[0]], mode='lines', name="外圍測溫點", line=dict(color='blue', width=3)))
-                fig2d.update_layout(autosize=True, title="📈 絕對精確溫度動態變化 (°C)", template="plotly_dark", margin=dict(l=60, r=20, b=65, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[env_temp-10, init_temp+20], title="溫度 (°C)"))
+                fig2d.update_layout(autosize=True, title="📈 絕對精確溫度動態變化 (°C)", template="plotly_dark", margin=dict(l=60, r=20, b=60, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[env_temp-10, init_temp+20], title="溫度 (°C)"))
+                
+                html_3d = fig3d.to_html(include_plotlyjs='cdn', full_html=False, default_width='100%', default_height='100%', div_id='plot-3d', config={'responsive': True})
+                html_2d = fig2d.to_html(include_plotlyjs=False, full_html=False, default_width='100%', default_height='100%', div_id='plot-2d', config={'responsive': True})
                 
                 history_json = json.dumps([h.tolist() for h in history])
                 time_json = json.dumps(times.tolist())
@@ -341,84 +342,100 @@ with tab2:
                 
                 table_rows = "".join([f"<tr style='border-bottom:1px solid #333;'><td style='padding:6px;'>Atom {id}</td><td style='padding:6px;'>{'🔥 核心源' if id == st.session_state.core_node else '❄️ 外部點' if id == st.session_state.edge_node else '傳導中圈'}</td><td id='temp-{i}' style='color:#00ffcc; font-weight:bold; padding:6px;'>{init_h[i]:.2f} °C</td></tr>" for i, id in enumerate(st.session_state.mol_atoms)])
 
-                # 🚀 終極護城河：CSS Grid 網格切割排版 (大括號已全數安全逃脫 `{{}}`)
-                custom_html = f"""
+                # 🚀 終極護城河：使用 Flexbox 並加上 min-height: 0 避免圖表撐破容器溢出！
+                html_template = """
                 <!DOCTYPE html>
                 <html>
                 <head>
                     <style>
-                        body, html {{ margin: 0; padding: 0; background-color: #0e1117; width: 100%; height: 100%; overflow: hidden; }}
-                        /* 真九宮格切割，比例 60/40，保證絕不破版 */
-                        #fs-container {{ display: grid; grid-template-columns: 60vw 40vw; grid-template-rows: 45vh 45vh; width: 100vw; height: 90vh; background: #0e1117; position: relative; }}
-                        #left-pane {{ grid-column: 1 / 2; grid-row: 1 / 3; border-right: 2px solid #333; overflow: hidden; }}
-                        #top-right-pane {{ grid-column: 2 / 3; grid-row: 1 / 2; border-bottom: 2px solid #333; overflow: hidden; }}
-                        #bottom-right-pane {{ grid-column: 2 / 3; grid-row: 2 / 3; overflow-y: auto; background: #1a1a1a; padding: 15px; }}
+                        body, html { margin: 0; padding: 0; background-color: #0e1117; width: 100%; height: 100%; overflow: hidden; box-sizing: border-box; }
+                        #fs-container { display: flex; flex-direction: row; width: 100%; height: 100vh; background: #0e1117; position: relative; }
+                        #left-pane { flex: 6; display: flex; flex-direction: column; min-width: 0; min-height: 0; border-right: 2px solid #333; position: relative; overflow: hidden; }
+                        #right-pane { flex: 4; display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; overflow: hidden; }
+                        #top-right-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; border-bottom: 2px solid #333; position: relative; overflow: hidden; }
+                        #bottom-right-pane { flex: 1; overflow-y: auto; background: #1a1a1a; padding: 15px; position: relative; }
+                        /* 強制內部畫布完全繼承格子大小 */
+                        .js-plotly-plot, .plot-container { width: 100% !important; height: 100% !important; flex: 1; min-height: 0; }
                     </style>
                 </head>
                 <body>
                     <button style="position:absolute; top:10px; right:20px; z-index:9999; background:rgba(255,255,255,0.1); color:#fff; border:1px solid rgba(255,255,255,0.4); padding:6px 12px; border-radius:4px; cursor:pointer;" onclick="toggleFS()">⤢ 全螢幕</button>
                     <div id="fs-container">
                         <div id="left-pane">
-                            {fig3d.to_html(include_plotlyjs='cdn', full_html=False, default_width='100%', default_height='100%', div_id='plot-3d')}
+                            __HTML_3D__
                         </div>
-                        <div id="top-right-pane">
-                            {fig2d.to_html(include_plotlyjs=False, full_html=False, default_width='100%', default_height='100%', div_id='plot-2d')}
-                        </div>
-                        <div id="bottom-right-pane">
-                            <table style="width:100%; border-collapse:collapse; text-align:center; color:white; font-family:sans-serif;">
-                                <thead>
-                                    <tr style="border-bottom:2px solid #555; position:sticky; top:0; background:#222;">
-                                        <th style="padding:10px;">粒子編號</th>
-                                        <th style="padding:10px;">拓樸定位</th>
-                                        <th style="padding:10px;">即時溫度 (°C)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>{table_rows}</tbody>
-                            </table>
+                        <div id="right-pane">
+                            <div id="top-right-pane">
+                                __HTML_2D__
+                            </div>
+                            <div id="bottom-right-pane">
+                                <table style="width:100%; border-collapse:collapse; text-align:center; color:white; font-family:sans-serif;">
+                                    <thead>
+                                        <tr style="border-bottom:2px solid #555; position:sticky; top:0; background:#222;">
+                                            <th style="padding:10px;">粒子編號</th>
+                                            <th style="padding:10px;">拓樸定位</th>
+                                            <th style="padding:10px;">即時溫度 (°C)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>__TABLE_ROWS__</tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                     <script>
-                        function toggleFS() {{
+                        function toggleFS() {
                             let elem = document.documentElement;
-                            if (!document.fullscreenElement) {{ elem.requestFullscreen(); }} 
-                            else {{ document.exitFullscreen(); }}
-                        }}
+                            if (!document.fullscreenElement) { elem.requestFullscreen(); } 
+                            else { document.exitFullscreen(); }
+                        }
 
-                        var h_data = {history_json};
-                        var t_data = {time_json};
-                        var c_data = {core_json};
-                        var e_data = {edge_json};
-                        var a_list = {atoms_json};
+                        var h_data = __HISTORY_JSON__;
+                        var t_data = __TIME_JSON__;
+                        var c_data = __CORE_JSON__;
+                        var e_data = __EDGE_JSON__;
+                        var a_list = __ATOMS_JSON__;
 
-                        var checkExist = setInterval(function() {{
+                        var checkExist = setInterval(function() {
                             var gd3d = document.getElementById('plot-3d');
                             var gd2d = document.getElementById('plot-2d');
-                            if (gd3d && typeof gd3d.on === 'function' && gd2d && typeof Plotly !== 'undefined') {{
+                            if (gd3d && typeof gd3d.on === 'function' && gd2d && typeof Plotly !== 'undefined') {
                                 clearInterval(checkExist);
-                                gd3d.on('plotly_animatingframe', function(eventData) {{
+                                gd3d.on('plotly_animatingframe', function(eventData) {
                                     var step = parseInt(eventData.name.replace('f', ''));
                                     var temps = h_data[step];
-                                    if (temps) {{
-                                        for (var i = 0; i < a_list.length; i++) {{
+                                    if (temps) {
+                                        for (var i = 0; i < a_list.length; i++) {
                                             var cell = document.getElementById('temp-' + i);
-                                            if (cell) {{ cell.innerText = temps[i].toFixed(2) + ' °C'; }}
-                                        }}
-                                    }}
-                                    Plotly.restyle(gd2d, {{'x': [t_data.slice(0, step + 1), t_data.slice(0, step + 1)], 'y': [c_data.slice(0, step + 1), e_data.slice(0, step + 1)]}}, [0, 1]);
-                                }});
-                            }}
-                        }}, 200);
+                                            if (cell) { cell.innerText = temps[i].toFixed(2) + ' °C'; }
+                                        }
+                                    }
+                                    Plotly.restyle(gd2d, {'x': [t_data.slice(0, step + 1), t_data.slice(0, step + 1)], 'y': [c_data.slice(0, step + 1), e_data.slice(0, step + 1)]}, [0, 1]);
+                                });
+                            }
+                        }, 200);
 
-                        window.onload = function() {{
-                            setTimeout(function() {{
+                        // 🚀 關鍵：網頁載入後，強制發送 resize 訊號，讓圖表完美填滿 Flexbox！
+                        window.onload = function() {
+                            setTimeout(function() {
                                 window.dispatchEvent(new Event('resize'));
-                            }}, 500);
-                        }};
+                            }, 500);
+                        };
                     </script>
                 </body>
                 </html>
                 """
-                # 使用足夠的高度渲染整個容器
-                components.html(custom_html, height=800)
+                
+                custom_html = html_template\
+                    .replace("__HTML_3D__", html_3d)\
+                    .replace("__HTML_2D__", html_2d)\
+                    .replace("__TABLE_ROWS__", table_rows)\
+                    .replace("__HISTORY_JSON__", history_json)\
+                    .replace("__TIME_JSON__", time_json)\
+                    .replace("__CORE_JSON__", core_json)\
+                    .replace("__EDGE_JSON__", edge_json)\
+                    .replace("__ATOMS_JSON__", atoms_json)
+                    
+                # 設定足夠的 iframe 高度，避免被 Streamlit 框架壓縮
+                components.html(custom_html, height=850)
         else:
-            st.info("💡 請點擊上方按鈕開始生成劇院級分離式動態底片。")
+            st.info("💡 請點擊上方按鈕開始生成劇院級分離式動態底片並解鎖戰情室。")
