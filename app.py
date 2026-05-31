@@ -16,7 +16,7 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
-st.markdown("搭載 **真實 3D 空間座標映射** 與 **黃金比例聯動儀表板**。還原 100% 完整原子數量，提供最開闊的數據監控視野！")
+st.markdown("搭載 **真實 3D 空間座標映射** 與 **65:35 巨幕黃金比例儀表板**。還原 100% 完整原子，提供最震撼的視覺體驗！")
 
 # ==========================================
 # 核心一：維基百科學術名詞對接與修正引擎
@@ -151,7 +151,7 @@ with st.sidebar:
 if 'mol_atoms' not in st.session_state:
     st.session_state.mol_atoms = list(range(3))
     st.session_state.mol_bonds = [(0,1), (1,2)]
-    st.session_state.mol_coords = {}  # 🚀 [防護網] 強制初始化空座標記憶體，避免 AttributeError
+    st.session_state.mol_coords = {}  
     st.session_state.core_node = 1
     st.session_state.edge_node = 0
     st.session_state.mol_name = "載入中"
@@ -173,7 +173,7 @@ def run_search(query_name):
 
     compounds = pcp.get_compounds(english_name, 'name', record_type='3d')
     if not compounds:
-        compounds = pcp.get_compounds(english_name, 'name') # 降級抓取 2D
+        compounds = pcp.get_compounds(english_name, 'name') 
     
     if not compounds: return False, f"⚠️ 資料庫無法配對「{english_name}」"
     
@@ -309,7 +309,6 @@ with tab2:
         for idx in range(len(atoms) - 1): G.add_edge(atoms[idx], atoms[idx+1])
         bonds = list(G.edges())
 
-    # 🚀 [防護網] 安全調用真實物理座標
     if 'mol_coords' in st.session_state and st.session_state.mol_coords and len(st.session_state.mol_coords) == len(atoms):
         pos_3d = st.session_state.mol_coords
     else:
@@ -328,7 +327,7 @@ with tab2:
     node_to_idx = {node: idx for idx, node in enumerate(atoms)}
 
     if start_anim and N > 0:
-        with st.spinner(f"⚡ 啟動矩陣指數運算... 正在建立完全分離的 CSS Grid 版面！"):
+        with st.spinner(f"⚡ 啟動矩陣指數運算... 正在建立 65:35 巨幕黃金比例版面！"):
             L_matrix = nx.laplacian_matrix(G, nodelist=atoms).toarray()
             T_initial = np.array([st.session_state.particle_temps[i] for i in atoms])
             time_steps = np.linspace(0, sim_duration, num=100)
@@ -344,7 +343,6 @@ with tab2:
                 core_hist.append(T_t[node_to_idx[core]])
                 edge_hist.append(T_t[node_to_idx[edge]])
             
-            # 第一張圖：完全獨立的 3D 動畫主播放器
             fig3d = go.Figure()
             fig3d.add_trace(go.Scatter3d(x=edge_x, y=edge_y, z=edge_z, mode='lines', line=dict(color='gray', width=3), hoverinfo='none'))
             
@@ -376,17 +374,15 @@ with tab2:
             )
             html_3d = fig3d.to_html(include_plotlyjs="cdn", full_html=False, div_id="plot-3d", default_height="100%", default_width="100%")
 
-            # 第二張圖：完全獨立的 2D 折線圖 (被 JS 遙控)
             fig2d = go.Figure()
             fig2d.add_trace(go.Scatter(x=[time_steps[0]], y=[core_hist[0]], mode='lines', name=f'核心點火源', line=dict(color='red', width=3)))
             fig2d.add_trace(go.Scatter(x=[time_steps[0]], y=[edge_hist[0]], mode='lines', name=f'外圍測溫點', line=dict(color='blue', width=3)))
             fig2d.update_layout(
-                title="📈 絕對精確溫度動態變化 (°C)", template="plotly_dark", margin=dict(l=30, r=20, b=30, t=40), height=320,
+                title="📈 絕對精確溫度動態變化 (°C)", template="plotly_dark", margin=dict(l=30, r=20, b=30, t=40),
                 xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[env_temp-10, init_temp+20], title="溫度 (°C)")
             )
             html_2d = fig2d.to_html(include_plotlyjs=False, full_html=False, div_id="plot-2d", default_height="100%", default_width="100%")
 
-            # JSON 數據準備
             history_json = json.dumps([arr.tolist() for arr in history_frames])
             time_json = json.dumps(time_steps.tolist())
             core_json = json.dumps(core_hist)
@@ -408,18 +404,22 @@ with tab2:
                 table_html += f"<tr><td style='padding: 6px; border-bottom: 1px solid #333;'>Atom {atom}</td><td style='padding: 6px; border-bottom: 1px solid #333;'>{role}</td><td id='temp-{idx}' style='padding: 6px; border-bottom: 1px solid #333; font-weight: bold; color: #00ffcc;'>{init_T[node_to_idx[atom]]:.2f} °C</td></tr>"
             table_html += "</tbody></table>"
 
-            # 終極黑科技：完美黃金比例 CSS Grid 排版
+            # 🚀 終極排版升級：左 65% (3D巨幕) | 右 35% (2D圖 與 大容量表格)
             custom_html = f"""
             <!DOCTYPE html>
             <html>
             <head>
                 <style>
                     body {{ margin: 0; padding: 0; background-color: #0e1117; overflow: hidden; }}
-                    #fs-container {{ display: grid; grid-template-columns: 55% 45%; height: 100vh; width: 100vw; background: #0e1117; position: relative; }}
+                    /* 🚀 左邊加寬到 65%，右邊縮到 35% */
+                    #fs-container {{ display: grid; grid-template-columns: 65% 35%; height: 100vh; width: 100vw; background: #0e1117; position: relative; }}
                     #left-pane {{ border-right: 2px solid #333; padding-right: 10px; height: 100%; overflow: hidden; }}
                     #right-pane {{ display: flex; flex-direction: column; padding-left: 10px; height: 100%; overflow: hidden; }}
-                    #plot-2d-container {{ flex: 0 0 38%; border-bottom: 2px solid #333; overflow: hidden; }}
-                    #table-container {{ flex: 1 1 62%; overflow-y: auto; padding-top: 10px; }}
+                    
+                    /* 🚀 讓折線圖縮小一點 (35%)，讓底下的表格可以塞更多原子 (65%) */
+                    #plot-2d-container {{ flex: 0 0 35%; border-bottom: 2px solid #333; overflow: hidden; }}
+                    #table-container {{ flex: 1 1 65%; overflow-y: auto; padding-top: 10px; }}
+                    
                     .fs-btn {{ position: absolute; top: 10px; right: 20px; z-index: 9999; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.4); padding: 6px 12px; border-radius: 4px; cursor: pointer; transition: 0.2s; }}
                     .fs-btn:hover {{ background: rgba(255,255,255,0.3); }}
                 </style>
@@ -478,7 +478,7 @@ with tab2:
             </html>
             """
             components.html(custom_html, height=850)
-            st.success("✅ 版面分離成功！現在左右區塊互相獨立，再也不會互相擠壓，且紅藍折線保證完美分離。")
+            st.success("✅ 巨幕版面升級成功！3D 模型佔比擴增至 65%，右側表格容量大升級，且 100% 重建所有真實氫原子。")
 
     else:
         st.info("💡 請點擊上方「⚙️ 生成劇院級分離式底片」按鈕來啟動矩陣指數運算。")
