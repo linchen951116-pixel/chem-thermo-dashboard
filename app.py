@@ -16,7 +16,7 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
-st.markdown("搭載 **標準 CSS Grid 網格切割** 與 **精確實驗數據抓取引擎**。徹底根絕畫面重疊與資料遺失，保證最高品質的展示效果！")
+st.markdown("搭載 **智慧數據正規化引擎** 與 **多方備援抓取機制**。強勢過濾髒數據，100% 統一攝氏溫標，提供最精確的科學儀表板！")
 
 # ==========================================
 # 核心一：維基百科學術名詞對接與修正引擎
@@ -32,8 +32,7 @@ LOCAL_CHEM_DICT = {
     "苯": "Benzene", "水": "Water", "咖啡酸": "Caffeic acid"
 }
 
-def contains_chinese(text): 
-    return bool(re.search('[\u4e00-\u9fff]', text))
+def contains_chinese(text): return bool(re.search('[\u4e00-\u9fff]', text))
 
 def translate_via_wikipedia(zh_name):
     try:
@@ -54,7 +53,7 @@ def fix_chemical_formula(formula):
     return formula
 
 # ==========================================
-# 核心二：自動 3D/2D 結構檔爬蟲 & 智慧物態萃取引擎
+# 核心二：數據抓取與智慧正規化引擎 (全新升級)
 # ==========================================
 def safe_translate(text):
     if not text or text == "無相關文獻數據": return text
@@ -71,6 +70,40 @@ def simplify_physical_state(text):
     elif is_sol: return "💧 水溶液 (純物質通常為固體)"
     return text
 
+# 🚀 核心外掛：智慧溫度解析器 (強迫全域轉換為攝氏 °C)
+def standardize_temperature(raw_str):
+    if not raw_str: return None
+    
+    # 1. 抓取已經是攝氏 (Celsius) 的數據
+    c_match = re.search(r'(-?\d+\.?\d*)\s*(?:-|to|~)\s*(-?\d+\.?\d*)\s*(?:°C|deg C|C\b)', raw_str, re.IGNORECASE)
+    if c_match: return f"{c_match.group(1)} ~ {c_match.group(2)} °C"
+    c_single = re.search(r'(-?\d+\.?\d*)\s*(?:°C|deg C|C\b)', raw_str, re.IGNORECASE)
+    if c_single: return f"{c_single.group(1)} °C"
+
+    # 2. 抓取華氏 (Fahrenheit) 並自動執行物理換算
+    f_match = re.search(r'(-?\d+\.?\d*)\s*(?:-|to|~)\s*(-?\d+\.?\d*)\s*(?:°F|deg F|F\b)', raw_str, re.IGNORECASE)
+    if f_match:
+        c1 = (float(f_match.group(1)) - 32) * 5.0 / 9.0
+        c2 = (float(f_match.group(2)) - 32) * 5.0 / 9.0
+        return f"{c1:.1f} ~ {c2:.1f} °C"
+    f_single = re.search(r'(-?\d+\.?\d*)\s*(?:°F|deg F|F\b)', raw_str, re.IGNORECASE)
+    if f_single:
+        c1 = (float(f_single.group(1)) - 32) * 5.0 / 9.0
+        return f"{c1:.1f} °C"
+        
+    # 3. 抓取克耳文 (Kelvin) 並自動執行物理換算
+    k_match = re.search(r'(-?\d+\.?\d*)\s*(?:-|to|~)\s*(-?\d+\.?\d*)\s*(?:K\b)', raw_str)
+    if k_match:
+        c1 = float(k_match.group(1)) - 273.15
+        c2 = float(k_match.group(2)) - 273.15
+        return f"{c1:.1f} ~ {c2:.1f} °C"
+    k_single = re.search(r'(-?\d+\.?\d*)\s*(?:K\b)', raw_str)
+    if k_single:
+        c1 = float(k_single.group(1)) - 273.15
+        return f"{c1:.1f} °C"
+
+    return None
+
 def get_mol_sdf(cid):
     try:
         res = requests.get(f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/record/SDF/?record_type=3d", timeout=5)
@@ -78,7 +111,7 @@ def get_mol_sdf(cid):
     except: pass
     return None, "2D 平面"
 
-# 🚀 升級版：直接定位 Experimental Properties，解決咖啡酸 None 的問題
+# 🚀 升級版：深度遍歷抓取 + 智慧備援機制
 def fetch_sds_and_properties(cid):
     props = {
         "外觀與性狀": "無相關文獻數據", "密度": "無相關文獻數據", "熔點": "無相關文獻數據", 
@@ -98,21 +131,43 @@ def fetch_sds_and_properties(cid):
         for sec in sections:
             if sec.get("TOCHeading") == "Chemical and Physical Properties":
                 for subsec in sec.get("Section", []):
-                    if subsec.get("TOCHeading") == "Experimental Properties":
+                    # 同時搜尋 Experimental 和 Computed 作為雙保險
+                    if subsec.get("TOCHeading") in ["Experimental Properties", "Computed Properties"]:
                         for prop in subsec.get("Section", []):
                             heading = prop.get("TOCHeading")
                             if heading in property_map:
                                 target_prop_zh = property_map[heading]
-                                try:
-                                    raw_info = prop.get("Information", [])[0]
-                                    val_list = raw_info.get("Value", {}).get("StringWithMarkup", [])
+                                
+                                # 如果這個屬性已經成功抓到了，就跳過不去覆蓋它
+                                if props[target_prop_zh] != "無相關文獻數據": continue
+                                
+                                # 遍歷資料庫中所有的文獻紀錄，直到抓到有用的數據為止
+                                for info in prop.get("Information", []):
+                                    val_list = info.get("Value", {}).get("StringWithMarkup", [])
                                     val_str = val_list[0].get("String") if val_list else None
-                                    if val_str:
-                                        if target_prop_zh == "外觀與性狀":
-                                            props[target_prop_zh] = simplify_physical_state(val_str)
+                                    
+                                    if not val_str: continue
+                                    
+                                    if target_prop_zh == "外觀與性狀":
+                                        parsed = simplify_physical_state(val_str)
+                                        if parsed != val_str:
+                                            props[target_prop_zh] = parsed
+                                            break
                                         else:
-                                            props[target_prop_zh] = val_str if "g/" in val_str or "kg/" in val_str or target_prop_zh != "密度" else f"{val_str} g/cm³"
-                                except: continue
+                                            props[target_prop_zh] = parsed
+                                            
+                                    elif target_prop_zh in ["熔點", "沸點", "閃點"]:
+                                        parsed_temp = standardize_temperature(val_str)
+                                        if parsed_temp:
+                                            props[target_prop_zh] = parsed_temp
+                                            break # 成功找到並轉換為攝氏就跳出迴圈
+                                            
+                                    else: # 密度、溶解度等其他屬性
+                                        if target_prop_zh == "密度" and "g/" not in val_str and "kg/" not in val_str:
+                                            val_str += " g/cm³"
+                                        props[target_prop_zh] = val_str
+                                        break
+                                        
             elif sec.get("TOCHeading") == "Safety and Hazards":
                 for subsec in sec.get("Section", []):
                     if subsec.get("TOCHeading") == "Hazards Identification":
@@ -167,7 +222,7 @@ with st.sidebar:
     anim_speed = st.slider("動畫播放速度 (每幀毫秒)", min_value=10, max_value=200, value=40, step=10)
 
 # ==========================================
-# 🚀 狀態機與記憶體安全初始化
+# 狀態機與記憶體安全初始化
 # ==========================================
 if 'mol_atoms' not in st.session_state:
     st.session_state.mol_atoms = list(range(3))
@@ -247,7 +302,7 @@ if st.session_state.last_env != env_temp or st.session_state.last_init != init_t
     st.session_state.last_init = init_temp
 
 if search_button and user_input:
-    with st.spinner("🧠 系統正在向美國 NIH 資料庫調閱 100% 真實空間座標與文獻數據..."):
+    with st.spinner("🧠 系統正在多方掃描文獻並執行單位正規化..."):
         success, msg = run_search(user_input)
         if not success: st.error(msg)
 
@@ -293,7 +348,7 @@ with tab1:
             st.markdown("---")
             st.subheader("🌡️ 實驗室文獻實測數據")
             prop_md = f"""
-            | 屬性類別 | 文獻實測數值 (包含單位) |
+            | 屬性類別 | 文獻實測數值 (系統已統一攝氏溫標) |
             | :--- | :--- |
             | 🧊 **密度 (Density)** | {sds["密度"]} |
             | ♨️ **沸點 (Boiling Point)** | {sds["沸點"]} |
@@ -308,7 +363,7 @@ with tab1:
         st.info("💡 請在左側輸入化學式或物質名稱，並按下「🔍 執行數據檢索」來啟動百科。")
 
 # ==========================================
-# 分頁 2：終極穩定 CSS Grid 聯動儀表板 (安全邊距校正版)
+# 分頁 2：終極穩定 CSS Grid 聯動儀表板
 # ==========================================
 with tab2:
     st.subheader(f"🔥 {st.session_state.mol_name} - 獨立視窗防溢出監控台")
@@ -402,7 +457,7 @@ with tab2:
             )
             html_3d = fig3d.to_html(include_plotlyjs="cdn", full_html=False, div_id="plot-3d")
 
-            # 🚀 第二張圖：2D 折線圖 (加大下邊距 b=65 避免橫軸單位被裁切；加大左邊距 l=55 避免縱軸單位被裁切)
+            # 🚀 第二張圖：2D 折線圖
             fig2d = go.Figure()
             fig2d.add_trace(go.Scatter(x=[time_steps[0]], y=[core_hist[0]], mode='lines', name=f'核心點火源', line=dict(color='red', width=3)))
             fig2d.add_trace(go.Scatter(x=[time_steps[0]], y=[edge_hist[0]], mode='lines', name=f'外圍測溫點', line=dict(color='blue', width=3)))
@@ -410,7 +465,7 @@ with tab2:
                 autosize=True,
                 title="📈 絕對精確溫度動態變化 (°C)", 
                 template="plotly_dark", 
-                margin=dict(l=55, r=25, b=65, t=40),
+                margin=dict(l=55, r=25, b=65, t=40), 
                 xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), 
                 yaxis=dict(range=[env_temp-10, init_temp+20], title="溫度 (°C)")
             )
@@ -542,7 +597,7 @@ with tab2:
             </html>
             """
             components.html(custom_html, height=850)
-            st.success("✅ 真網格切割完畢！文字重疊已清除。您不需要手動放大，圖表會自動對齊邊界。")
+            st.success("✅ 數據擷取與單位正規化成功！系統已將資料庫中的華氏、克耳文等數據，強制統一轉換為標準攝氏溫標。")
 
     else:
         st.info("💡 請點擊上方「⚙️ 生成劇院級分離式底片」按鈕來啟動矩陣指數運算。")
