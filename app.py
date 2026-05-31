@@ -110,8 +110,12 @@ def fetch_sds_and_properties(cid):
                                         props["危險信號詞"] = "危險 (Danger)" if "Danger" in raw_s else ("警告 (Warning)" if "Warning" in raw_s else raw_s)
                                     elif info.get("Name") == "GHS Hazard Statements":
                                         raw_h = [h["String"] for h in info["Value"]["StringWithMarkup"]]
-                                        try: props["危害警告"] = [GoogleTranslator(source='auto', target='zh-TW').translate(h) for h in raw_h[:5]]
-                                        except: props["危害警告"] = raw_h[:5]
+                                       if any("not classified" in h.lower() for h in raw_h):
+                                            props["危險信號詞"] = "無標示 / 安全"
+                                            props["危害警告"] = []
+                                        else:
+                                            try: props["危害警告"] = [GoogleTranslator(source='auto', target='zh-TW').translate(h) for h in raw_h[:5]]
+                                            except: props["危害警告"] = raw_h[:5]
     except: pass
     return props
 
