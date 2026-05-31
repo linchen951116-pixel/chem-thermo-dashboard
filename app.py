@@ -16,7 +16,7 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
-st.markdown("搭載 **標準 CSS Grid 網格切割**、**維度安全阻斷保護** 與 **100% 攝氏溫標正規化引擎**。提供最嚴謹、流暢的科學儀表板！")
+st.markdown("搭載 **幾何空間座標拓樸檢查器** 與 **標準 CSS Grid 網格切割排版**。100% 捍衛科學嚴謹性，提供無死角視覺體驗！")
 
 # ==========================================
 # 核心一：維基百科學術名詞對接與修正引擎
@@ -51,7 +51,7 @@ def fix_chemical_formula(formula):
     return formula
 
 # ==========================================
-# 核心二：數據抓取與智慧正規化引擎 (統一溫標與去雜訊)
+# 核心二：數據抓取與智慧溫標正規化引擎
 # ==========================================
 def simplify_physical_state(text):
     if not text or text == "無相關文獻數據": return text
@@ -64,17 +64,14 @@ def simplify_physical_state(text):
 
 def standardize_temperature(raw_str):
     if not raw_str: return None
-    # 優先匹配攝氏數據，避免重複轉換
     c_single = re.search(r'(-?\d+\.?\d*)\s*(?:°C|deg C|C\b)', raw_str, re.IGNORECASE)
     if c_single: return f"{c_single.group(1)} °C"
     
-    # 匹配華氏並執行物理轉換
     f_match = re.search(r'(-?\d+\.?\d*)\s*(?:°F|deg F|F\b)', raw_str, re.IGNORECASE)
     if f_match:
         val = (float(f_match.group(1)) - 32) * 5.0 / 9.0
         return f"{val:.1f} °C"
     
-    # 匹配克耳文並轉換
     k_match = re.search(r'(-?\d+\.?\d*)\s*(?:K\b)', raw_str)
     if k_match:
         val = float(k_match.group(1)) - 273.15
@@ -123,8 +120,15 @@ def fetch_sds_and_properties(cid):
     except: pass
     return props
 
+def get_mol_sdf(cid):
+    try:
+        res = requests.get(f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/record/SDF/?record_type=3d", timeout=5)
+        if res.status_code == 200: return res.text, "3D 立體"
+    except: pass
+    return None, "2D 平面"
+
 # ==========================================
-# 核心三：雙軌檢索邏輯 (解決 None 的關鍵)
+# 核心三：雙軌安全檢索與幾何空間檢查器
 # ==========================================
 def run_search(query_name):
     english_name = query_name
@@ -137,18 +141,14 @@ def run_search(query_name):
                 try: english_name = GoogleTranslator(source='auto', target='en').translate(query_name)
                 except: return False, "翻譯服務暫時不可用"
 
-    # 雙軌第一步：先抓取 2D 摘要屬性 (保證屬性齊全)
     std_compounds = pcp.get_compounds(english_name, 'name')
     if not std_compounds: return False, f"⚠️ 資料庫無法配對「{english_name}」"
     
     c_std = std_compounds[0]
     cid = c_std.cid
 
-    # 雙軌第二步：專門抓取 3D 完整立體結構數據
     c_3d_list = pcp.get_compounds(cid, record_type='3d')
     c_3d = c_3d_list[0] if c_3d_list else None
-    
-    dim_type = "3D 立體" if c_3d else "2D 平面"
     
     real_coords = {}
     if c_3d:
@@ -156,27 +156,25 @@ def run_search(query_name):
             if hasattr(atom, 'x') and atom.x is not None:
                 real_coords[atom.aid] = [atom.x, atom.y, atom.z]
     
-    # 整合最終數據 (屬性取自 c_std 保證齊全，結構取自 c_3d 用於模擬)
+    # 🚀 幾何漏洞修正：只有當真實提取到立體空間座標點時，維度才判定為 3D，否則強制作為 2D 攔截！
+    dim_type = "3D 立體" if real_coords else "2D 平面"
+    
     st.session_state.search_data = {
-        "english_name": english_name.capitalize(),
-        "cid": cid,
+        "english_name": english_name.capitalize(), "cid": cid,
         "fixed_formula": fix_chemical_formula(c_std.molecular_formula),
         "molecular_weight": c_std.molecular_weight or "N/A",
-        "tpsa": c_std.tpsa or 0,
-        "h_bond_donor_count": c_std.h_bond_donor_count or 0,
+        "tpsa": c_std.tpsa or 0, "h_bond_donor_count": c_std.h_bond_donor_count or 0,
         "h_bond_acceptor_count": c_std.h_bond_acceptor_count or 0,
         "isomeric_smiles": c_std.isomeric_smiles or c_std.canonical_smiles or "N/A",
-        "sds_data": fetch_sds_and_properties(cid),
-        "dim_type": dim_type
+        "sds_data": fetch_sds_and_properties(cid), "dim_type": dim_type
     }
     
-    sim_source = c_3d if c_3d else c_std
+    sim_source = c_3d if (c_3d and real_coords) else c_std
     st.session_state.mol_atoms = [atom.aid for atom in sim_source.atoms]
     st.session_state.mol_bonds = [(bond.aid1, bond.aid2) for bond in sim_source.bonds]
     st.session_state.mol_coords = real_coords
     st.session_state.mol_name = english_name.capitalize()
     
-    # 自動分析拓樸核心與外圍節點 (強制分離防重疊)
     degree = {}
     for a, b in st.session_state.mol_bonds:
         degree[a] = degree.get(a, 0) + 1; degree[b] = degree.get(b, 0) + 1
@@ -193,35 +191,33 @@ def run_search(query_name):
     st.session_state.particle_temps[st.session_state.core_node] = 500.0
     return True, "Success"
 
-# 初始化預設物質
-if 'initialized' not in st.session_state:
+if 'search_data' not in st.session_state:
     run_search("水")
-    st.session_state.initialized = True
 
-# --- 側邊欄參數配置面板 ---
+# --- 側邊欄控制面板 ---
 with st.sidebar:
-    st.header("⚙️ 控制面板")
-    user_input = st.text_input("輸入化學名稱 (中文/英文俗名/學名)", "水").strip()
+    st.header("⚙️ 全局控制面板")
+    user_input = st.text_input("輸入化學物質名稱", "水").strip()
     style = st.selectbox("3D 渲染風格", ["stick", "sphere", "line", "cross"])
-    search_button = st.button("🔍 檢索數據", type="primary")
+    search_button = st.button("🔍 執行數據檢索", type="primary")
     st.markdown("---")
-    env_temp = st.slider("環境溫度設定 (°C)", -20.0, 60.0, 25.0)
-    init_temp = st.slider("中心點火溫度 (°C)", 50.0, 500.0, 500.0)
-    k_val = st.slider("熱傳導係數 (k)", 0.01, 0.50, 0.15)
-    sim_duration = st.slider("模擬總時長 (秒)", 3.0, 30.0, 10.0)
-    anim_speed = st.slider("動畫每幀播放延遲 (ms)", 10, 200, 40)
+    env_temp = st.slider("環境溫度設定 (°C)", -20.0, 60.0, 25.0, step=0.5)
+    init_temp = st.slider("中心點火溫度 (°C)", 50.0, 500.0, 500.0, step=10.0)
+    k_val = st.slider("熱傳導係數 (k)", 0.01, 0.50, 0.15, step=0.01)
+    sim_duration = st.slider("模擬總時長 (秒)", 3.0, 30.0, 10.0, step=1.0)
+    anim_speed = st.slider("動畫播放延遲 (ms)", 10, 200, 40, step=10)
 
 if search_button and user_input:
-    with st.spinner("🧠 正在啟動雙軌引擎擷取結構與文獻數據..."):
+    with st.spinner("🧠 雙軌大數據同步擷取中..."):
         success, msg = run_search(user_input)
         if not success: st.error(msg)
 
-# --- 前端雙分頁系統 ---
+# --- 雙分頁渲染系統 ---
 tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 網格分離式動畫儀表板"])
 
 with tab1:
     sd = st.session_state.search_data
-    st.success(f"✅ 當前載入物質：「**{sd['english_name']}**」 | 系統已成功解析全數 **{len(st.session_state.mol_atoms)}** 顆真實原子。")
+    st.success(f"✅ 當前物質：「**{sd['english_name']}**」 | 成功解析全數 **{len(st.session_state.mol_atoms)}** 顆真實原子。")
     c1, c2 = st.columns([1, 1.2])
     with c1:
         st.subheader("⚛️ 結構計算屬性")
@@ -232,8 +228,6 @@ with tab1:
         * **氫鍵 (供體/受體):** `{sd['h_bond_donor_count']} / {sd['h_bond_acceptor_count']}`
         * **SMILES 結構式:** `{sd['isomeric_smiles']}`
         """)
-        
-        st.subheader("🔮 空間幾何分子模型")
         try:
             res = requests.get(f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{sd['cid']}/record/SDF/?record_type=3d", timeout=5)
             if res.status_code == 200:
@@ -247,155 +241,197 @@ with tab1:
         except: st.warning("3D 預覽伺服器響應超時")
         
     with c2:
-        st.subheader("Temperature 🌡️ 文獻實測數據 (°C)")
+        st.subheader("🌡️ 實驗室文獻實測數據 (°C)")
         sds = sd['sds_data']
         st.markdown(f"""
         | 屬性類別 | 文獻實測數據 (全域正規化溫標) |
         | :--- | :--- |
-        | 🧊 密度 (Density) | {sds['密度']} |
-        | 熔點 (Melting Point) | {sds['熔點']} |
-        | ♨️ 沸點 (Boiling Point) | {sds['沸點']} |
-        | 🔥 閃點 (Flash Point) | {sds['閃點']} |
-        | 💧 溶解度 (Solubility) | {sds['溶解度']} |
+        | 🧊 **密度 (Density)** | {sds['密度']} |
+        | **熔點 (Melting Point)** | {sds['熔點']} |
+        | ♨️ **沸點 (Boiling Point)** | {sds['沸點']} |
+        | 🔥 **閃點 (Flash Point)** | {sds['閃點']} |
+        | 💧 **溶解度 (Solubility)** | {sds['溶解度']} |
         """)
         if sds['危害警告']:
             st.error(f"🚨 **GHS 危害信號詞: {sds['危險信號詞']}**")
             for h in sds['危害警告']: st.caption(f"▪️ {h}")
 
 with tab2:
-    # 🚀 維度安全阻斷機制：2D 物質在此直接被攔截，防止溢出與渲染死機
+    # 🚀 絕對維度防護欄：只要被判定為 2D 平面，就絕對不允許進入偏微分運算
     if sd['dim_type'] == "2D 平面":
-        st.warning("⚠️ 偵測到當前物質僅具備 2D 平面幾何拓樸，系統已安全阻斷熱傳導模擬。")
+        st.warning("⚠️ 偵測到當前物質缺乏真實 3D 空間幾何座標，系統已自動安全阻斷熱傳導模擬。")
         st.info("""
-        💡 **維度防護安全說明：**
-        本儀表板採用 **偏微分方程之矩陣指數精確解 (Matrix Exponential)** 進行動態熱擴散推演，運算高度依賴空間實體 $x, y, z$ 座標。
-        由於離子鹽類晶格或部分特殊無機物在國際資料庫中僅留有 2D 平面紀錄，強行渲染會造成 WebGL 畫布黑屏或崩潰。
+        💡 **維度安全防護說明：**
+        本監控台之擴散模擬採用 **偏微分方程之矩陣指數精確解 (Matrix Exponential)**，運算高度依賴原子在真實世界中的物理立體幾何座標 ($x, y, z$)。
+        當前檢索的物質（如離子晶格類化合物，或 PubChem 資料庫中未收錄立體座標之分子）僅有 2D 拓樸紀錄。若強行進行 3D 矩陣投影，會導致畫布渲染核心死機（黑屏）。
         
-        **👉 解鎖建議：**
-        請在左側重新檢索具備完整 3D 結構的分子（如：**阿斯匹靈**、**咖啡酸**、**普拿疼**、**水**、**苯**、**乙醇**等），即可重啟高畫質雙聯動模擬桌。
+        **👉 建議嘗試：**
+        請在控制面板重新檢索具備完整 3D 真實立體結構的共價分子（如：**阿斯匹靈 (Aspirin)**、**咖啡酸 (Caffeic acid)**、**普拿疼 (Acetaminophen)**、**水 (Water)**、**苯 (Benzene)** 等），即可完美解鎖雙聯動展示桌。
         """)
     else:
-        st.subheader(f"🔥 {st.session_state.mol_name} - 3D 矩陣指數動態傳導戰情室")
-        start_anim = st.button("⚙️ 生成劇院級分離式底片", type="primary", use_container_width=True)
+        st.subheader(f"🔥 {st.session_state.mol_name} - 3D 偏微分矩陣熱擴散戰情室")
+        start_anim = st.button("⚙️ 生成劇院級分離式動態底片", type="primary", use_container_width=True)
         
         if start_anim:
-            with st.spinner("⚡ 正在解偏微分方程拉普拉斯矩陣指數絕對精確解..."):
+            with st.spinner("⚡ 正在求解拉普拉斯運算子矩陣指數絕對精確解..."):
                 G = nx.Graph()
                 G.add_nodes_from(st.session_state.mol_atoms); G.add_edges_from(st.session_state.mol_bonds)
                 L = nx.laplacian_matrix(G).toarray()
                 T0 = np.array([env_temp if i != st.session_state.core_node else init_temp for i in st.session_state.mol_atoms])
                 times = np.linspace(0, sim_duration, 100)
                 
-                # 微積分精確矩陣流
-                history = [expm(-k_val * t * L).dot(T0) for t in times]
+                # 計算時間擴散矩陣
+                history = [expm(-k_val * t / 1.0 * L).dot(T0) for t in times]
                 c_hist = [h[st.session_state.mol_atoms.index(st.session_state.core_node)] for h in history]
                 e_hist = [h[st.session_state.mol_atoms.index(st.session_state.edge_node)] for h in history]
                 
-                # 建立 3D 動畫主圖表
+                # 建立 3D 圖表
                 fig3d = go.Figure()
                 p3d = st.session_state.mol_coords
                 for b in st.session_state.mol_bonds:
                     fig3d.add_trace(go.Scatter3d(x=[p3d[b[0]][0], p3d[b[1]][0]], y=[p3d[b[0]][1], p3d[b[1]][1]], z=[p3d[b[0]][2], p3d[b[1]][2]], mode='lines', line=dict(color='gray', width=3), hoverinfo='none'))
                 
+                init_h = history[0]
+                init_labels = [f"🔥 核心源<br>溫度: {init_h[st.session_state.mol_atoms.index(i)]:.1f}°C" if i == st.session_state.core_node else (f"❄️ 外圍點<br>溫度: {init_h[st.session_state.mol_atoms.index(i)]:.1f}°C" if i == st.session_state.edge_node else f"原子 {i}<br>溫度: {init_h[st.session_state.mol_atoms.index(i)]:.1f}°C") for i in st.session_state.mol_atoms]
+                
                 fig3d.add_trace(go.Scatter3d(
-                    x=[p3d[i][0] for i in st.session_state.mol_atoms], 
-                    y=[p3d[i][1] for i in st.session_state.mol_atoms], 
-                    z=[p3d[i][2] for i in st.session_state.mol_atoms], 
-                    mode='markers', 
-                    text=[f"Atom {i}" for i in st.session_state.mol_atoms], hoverinfo='text',
-                    marker=dict(size=20, color=history[0], colorscale='Turbo', cmin=env_temp-5, cmax=init_temp+5, colorbar=dict(title="溫度 (°C)", thickness=10, x=-0.05))
+                    x=[p3d[i][0] for i in st.session_state.mol_atoms], y=[p3d[i][1] for i in st.session_state.mol_atoms], z=[p3d[i][2] for i in st.session_state.mol_atoms], 
+                    mode='markers', text=init_labels, hoverinfo='text',
+                    marker=dict(size=22, color=init_h, colorscale='Turbo', cmin=env_temp-5, cmax=init_temp+5, colorbar=dict(title="溫度 (°C)", thickness=10, x=-0.05))
                 ))
                 
                 fig3d.frames = [go.Frame(data=[go.Scatter3d(marker=dict(color=h))], name=f"f{i}", traces=[len(st.session_state.mol_bonds)]) for i, h in enumerate(history)]
-                fig3d.update_layout(autosize=True, template="plotly_dark", margin=dict(l=0, r=0, b=0, t=30), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False), updatemenus=[dict(type="buttons", active=-1, showactive=False, y=-0.05, x=0.5, xanchor="center", direction="left", buttons=[dict(label="▶️ 播放聯動", method="animate", args=[None, dict(frame=dict(duration=anim_speed, redraw=True), fromcurrent=True, mode="immediate", transition=dict(duration=0))]), dict(label="⏸️ 暫停", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate", transition=dict(duration=0))])])])
+                fig3d.update_layout(autosize=True, template="plotly_dark", margin=dict(l=10, r=10, b=30, t=40), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False), updatemenus=[dict(type="buttons", active=-1, showactive=False, y=-0.05, x=0.5, xanchor="center", direction="left", buttons=[dict(label="▶️ 播放聯動", method="animate", args=[None, dict(frame=dict(duration=anim_speed, redraw=True), fromcurrent=True, mode="immediate", transition=dict(duration=0))]), dict(label="⏸️ 暫停", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate", transition=dict(duration=0))])])])
+                html_3d = fig3d.to_html(include_plotlyjs='cdn', full_html=False, div_id='plot-3d')
                 
-                # 建立 2D 歷史曲線圖 (補足安全內邊距)
+                # 建立 2D 歷史趨勢圖 (保留安全下邊距與左邊距，單位絕對不被擋到)
                 fig2d = go.Figure()
-                fig2d.add_trace(go.Scatter(x=[times[0]], y=[c_hist[0]], name="中心點火源", line=dict(color='red', width=3)))
-                fig2d.add_trace(go.Scatter(x=[times[0]], y=[e_hist[0]], name="外圍測溫點", line=dict(color='blue', width=3)))
+                fig2d.add_trace(go.Scatter(x=[times[0]], y=[c_hist[0]], mode='lines', name="中心點火源", line=dict(color='red', width=3)))
+                fig2d.add_trace(go.Scatter(x=[times[0]], y=[e_hist[0]], mode='lines', name="外圍測溫點", line=dict(color='blue', width=3)))
                 fig2d.update_layout(autosize=True, template="plotly_dark", margin=dict(l=55, r=25, b=65, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[env_temp-10, init_temp+20], title="溫度 (°C)"))
+                html_2d = fig2d.to_html(include_plotlyjs=False, full_html=False, div_id='plot-2d')
                 
-                # 序列化通訊 JSON 數據
+                # 序列化 JSON 資料流
                 history_json = json.dumps([h.tolist() for h in history])
                 time_json = json.dumps(times.tolist())
                 core_json = json.dumps(c_hist)
                 edge_json = json.dumps(e_hist)
                 atoms_json = json.dumps(st.session_state.mol_atoms)
-                init_h = history[0]
+                
+                # 建立獨立數據表格
+                table_rows = "".join([f"<tr style='border-bottom:1px solid #333;'><td style='padding:6px;'>Atom {id}</td><td style='padding:6px;'>{'🔥 核心源' if id == st.session_state.core_node else '❄️ 外部點' if id == st.session_state.edge_node else '傳導中圈'}</td><td id='temp-{i}' style='color:#00ffcc; font-weight:bold; padding:6px;'>{init_h[i]:.2f} °C</td></tr>" for i, id in enumerate(st.session_state.mol_atoms)])
 
-                # 🚀 終極護城河：CSS Grid 網格切割排版 (大括號已全數安全逃脫 `{{}}`)
+                # 🚀 終極鐵壁排版：標準 CSS Grid 網格硬性切分 (所有大括號已安全逃脫 {{}})
                 custom_html = f"""
-                <div id="fs-container" style="display: grid; grid-template-columns: 60% 40%; grid-template-rows: 50% 50%; width:100vw; height:80vh; background:#0e1117; position:relative;">
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body, html {{ margin: 0; padding: 0; background-color: #0e1117; width: 100%; height: 100%; overflow: hidden; }}
+                        #fs-container {{
+                            display: grid;
+                            grid-template-columns: 60% 40%;
+                            grid-template-rows: 50% 50%;
+                            width: 100vw;
+                            height: 100vh;
+                            background: #0e1117;
+                            position: relative;
+                        }}
+                        #left-pane {{
+                            grid-column: 1 / 2;
+                            grid-row: 1 / 3;
+                            border-right: 2px solid #333;
+                            overflow: hidden;
+                        }}
+                        #top-right-pane {{
+                            grid-column: 2 / 3;
+                            grid-row: 1 / 2;
+                            border-bottom: 2px solid #333;
+                            overflow: hidden;
+                        }}
+                        #bottom-right-pane {{
+                            grid-column: 2 / 3;
+                            grid-row: 2 / 3;
+                            overflow-y: auto;
+                            background: #1a1a1a;
+                            padding: 15px;
+                        }}
+                        .js-plotly-plot, .plot-container {{
+                            width: 100% !important;
+                            height: 100% !important;
+                        }}
+                    </style>
+                </head>
+                <body>
                     <button style="position:absolute; top:10px; right:20px; z-index:9999; background:rgba(255,255,255,0.1); color:#fff; border:1px solid rgba(255,255,255,0.4); padding:6px 12px; border-radius:4px; cursor:pointer;" onclick="toggleFS()">⤢ 全螢幕</button>
-                    <div id="left-pane" style="grid-column:1/2; grid-row:1/3; border-right:2px solid #333; overflow:hidden;">
-                        {fig3d.to_html(include_plotlyjs='cdn', full_html=False, div_id='plot-3d')}
+                    <div id="fs-container">
+                        <div id="left-pane"> {html_3d} </div>
+                        <div id="top-right-pane"> {html_2d} </div>
+                        <div id="bottom-right-pane">
+                            <table style="width:100%; border-collapse:collapse; text-align:center; color:white; font-family:sans-serif;">
+                                <thead>
+                                    <tr style="border-bottom:2px solid #555; position:sticky; top:0; background:#222;">
+                                        <th style="padding:10px;">粒子編號</th>
+                                        <th style="padding:10px;">拓樸定位</th>
+                                        <th style="padding:10px;">即時溫度 (°C)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {table_rows}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                    <div id="top-right-pane" style="grid-column:2/3; grid-row:1/2; border-bottom:2px solid #333; overflow:hidden;">
-                        {fig2d.to_html(include_plotlyjs=False, full_html=False, div_id='plot-2d')}
-                    </div>
-                    <div id="bottom-right-pane" style="grid-column:2/3; grid-row:2/3; overflow-y:auto; background:#1a1a1a; padding:15px;">
-                        <table style="width:100%; border-collapse:collapse; text-align:center; color:white; font-family:sans-serif;">
-                            <thead>
-                                <tr style="border-bottom:2px solid #555; position:sticky; top:0; background:#222;">
-                                    <th style="padding:10px;">粒子編號</th>
-                                    <th style="padding:10px;">拓樸定位</th>
-                                    <th style="padding:10px;">即時溫度 (°C)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {" ".join([f"<tr style='border-bottom:1px solid #333;'><td style='padding:6px;'>Atom {id}</td><td style='padding:6px;'>{'🔥 核心源' if id == st.session_state.core_node else '❄️ 外部點' if id == st.session_state.edge_node else '傳導中圈'}</td><td id='temp-{i}' style='color:#00ffcc; font-weight:bold; padding:6px;'>{init_h[i]:.2f} °C</td></tr>" for i, id in enumerate(st.session_state.mol_atoms)])}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <script>
-                    function toggleFS() {{
-                        let elem = document.documentElement;
-                        if (!document.fullscreenElement) {{ elem.requestFullscreen(); }} 
-                        else {{ document.exitFullscreen(); }}
-                    }}
+                    <script>
+                        function toggleFS() {{
+                            let elem = document.documentElement;
+                            if (!document.fullscreenElement) {{ elem.requestFullscreen(); }} 
+                            else {{ document.exitFullscreen(); }}
+                        }}
 
-                    var h_data = {history_json};
-                    var t_data = {time_json};
-                    var c_data = {core_json};
-                    var e_data = {edge_json};
-                    var a_list = {atoms_json};
+                        var h_data = {history_json};
+                        var t_data = {time_json};
+                        var c_data = {core_json};
+                        var e_data = {edge_json};
+                        var a_list = {atoms_json};
 
-                    function syncDashboard(step) {{
-                        var temps = h_data[step];
-                        if(temps) {{
-                            for(var i=0; i<a_list.length; i++) {{
-                                var cell = document.getElementById('temp-' + i);
-                                if(cell) cell.innerText = temps[i].toFixed(2) + ' °C';
+                        function syncDashboard(step) {{
+                            var temps = h_data[step];
+                            if (temps) {{
+                                for (var i = 0; i < a_list.length; i++) {{
+                                    var cell = document.getElementById('temp-' + i);
+                                    if (cell) {{ cell.innerText = temps[i].toFixed(2) + ' °C'; }}
+                                }}
+                            }}
+                            var gd2d = document.getElementById('plot-2d');
+                            if (gd2d && typeof Plotly !== 'undefined') {{
+                                var new_t = t_data.slice(0, step + 1);
+                                var new_c = c_data.slice(0, step + 1);
+                                var new_e = e_data.slice(0, step + 1);
+                                Plotly.restyle(gd2d, {{'x': [new_t, new_t], 'y': [new_c, new_e]}}, [0, 1]);
                             }}
                         }}
-                        var gd2d = document.getElementById('plot-2d');
-                        if (gd2d && typeof Plotly !== 'undefined') {{
-                            var new_t = t_data.slice(0, step+1);
-                            var new_c = c_data.slice(0, step+1);
-                            var new_e = e_data.slice(0, step+1);
-                            Plotly.restyle(gd2d, {{'x': [new_t, new_t], 'y': [new_c, new_e]}}, [0, 1]);
-                        }}
-                    }}
 
-                    var checkExist = setInterval(function() {{
-                        var gd3d = document.getElementById('plot-3d');
-                        if (gd3d && typeof gd3d.on === 'function') {{
-                            clearInterval(checkExist);
-                            gd3d.on('plotly_animatingframe', function(eventData) {{
-                                var step = parseInt(eventData.name.replace('f', ''));
-                                syncDashboard(step);
-                            }});
-                        }}
-                    }}, 200);
-                    
-                    window.onload = function() {{
-                        setTimeout(function() {{
-                            window.dispatchEvent(new Event('resize'));
-                        }}, 500);
-                    }};
-                </script>
+                        var checkExist = setInterval(function() {{
+                            var gd3d = document.getElementById('plot-3d');
+                            if (gd3d && typeof gd3d.on === 'function') {{
+                                clearInterval(checkExist);
+                                gd3d.on('plotly_animatingframe', function(eventData) {{
+                                    var step = parseInt(eventData.name.replace('f', ''));
+                                    syncDashboard(step);
+                                }});
+                            }}
+                        }}, 200);
+
+                        window.onload = function() {{
+                            setTimeout(function() {{
+                                window.dispatchEvent(new Event('resize'));
+                            }}, 500);
+                        }};
+                    </script>
+                </body>
+                </html>
                 """
                 components.html(custom_html, height=850)
         else:
-            st.info("💡 請點擊上方按鈕開始生成劇院級分離式底片並鎖定畫布邊界。")
+            st.info("💡 請點擊上方按鈕開始生成劇院級分離式動態底片。")
