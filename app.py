@@ -51,7 +51,7 @@ def fix_chemical_formula(formula):
     return formula
 
 # ==========================================
-# 核心二：數據抓取與智慧正規化引擎 (主引擎)
+# 核心二：數據抓取與智慧正規化引擎
 # ==========================================
 def simplify_physical_state(text):
     if not text or text == "無相關文獻數據": return text
@@ -119,45 +119,62 @@ def fetch_sds_and_properties(cid):
     return props
 
 # ==========================================
-# 🚀 核心 2.5：無痕備援引擎 (靜默萃取 Wikipedia 資訊框)
+# 🚀 核心 2.5：兩段式仿生無痕備援引擎
 # ==========================================
 def fetch_wiki_silent_fallback(zh_name, props):
-    """當 PubChem 數據缺漏時，無痕調取維基百科化學盒，不顯示任何標籤標記"""
+    """突破繁簡體死角，利用兩段式 Search API 抓取無痕數據"""
     if not zh_name or not contains_chinese(zh_name): return props
     try:
-        url = f"https://zh.wikipedia.org/w/api.php?action=query&prop=revisions&rvprop=content&titles={zh_name}&format=json"
+        # 第一步：利用 Search API 找到精確內部標題 (突破繁簡轉換障礙)
+        search_url = f"https://zh.wikipedia.org/w/api.php?action=query&list=search&srsearch={zh_name}&utf8=&format=json&srlimit=1"
+        search_res = requests.get(search_url, timeout=5).json()
+        search_results = search_res.get("query", {}).get("search", [])
+        if not search_results: return props
+        
+        exact_title = search_results[0]["title"]
+        
+        # 第二步：拿精確標題去提取源碼內容
+        url = f"https://zh.wikipedia.org/w/api.php?action=query&prop=revisions&rvprop=content&titles={exact_title}&format=json"
         res = requests.get(url, timeout=5).json()
         pages = res.get("query", {}).get("pages", {})
+        
         for _, page_info in pages.items():
             if "revisions" in page_info:
                 content = page_info["revisions"][0].get("*", "")
                 
+                # 升級版過濾器：處理換行、維基轉化模板
                 def clean_val(val):
-                    v = re.sub(r'<ref.*?</ref>', '', val, flags=re.DOTALL)
-                    v = re.sub(r'<ref.*?/>', '', v) 
-                    v = re.sub(r'<.*?>', ' ', v)
+                    v = re.sub(r'<ref.*?</ref>', '', val, flags=re.DOTALL|re.IGNORECASE)
+                    v = re.sub(r'<ref.*?/>', '', v, flags=re.IGNORECASE)
+                    v = re.sub(r'<br\s*/?>', ' / ', v, flags=re.IGNORECASE) # 換行變斜線
+                    v = re.sub(r'<.*?>', '', v)
                     v = re.sub(r'\[\[(?:[^|\]]*\|)?([^\]]+)\]\]', r'\1', v)
+                    v = re.sub(r'\{\{convert\|(.*?)\|(.*?)\|.*?\}\}', r'\1 \2', v) 
                     v = re.sub(r'\{\{val\|(.*?)\|(.*?)\}\}', r'\1 \2', v)
                     v = re.sub(r'\{\{.*?\}\}', '', v)
-                    return v.strip()
+                    return v.strip().strip('-').strip()
 
+                # 精準 Regex，支援 Chembox 各種刁鑽寫法
                 patterns = {
-                    "密度": r'\|\s*密度\s*=\s*(.*?)\n',
-                    "熔點": r'\|\s*熔點\s*=\s*(.*?)\n',
-                    "沸點": r'\|\s*沸點\s*=\s*(.*?)\n',
-                    "溶解度": r'\|\s*溶解度\s*=\s*(.*?)\n',
-                    "蒸氣壓": r'\|\s*蒸氣壓\s*=\s*(.*?)\n'
+                    "密度": r'\|\s*(?:Density|密度)\s*=\s*([^\n]+)',
+                    "熔點": r'\|\s*(?:MeltingPtC?|Melting_point|熔點|熔点)\s*=\s*([^\n]+)',
+                    "沸點": r'\|\s*(?:BoilingPtC?|Boiling_point|沸點|沸点)\s*=\s*([^\n]+)',
+                    "溶解度": r'\|\s*(?:Solubility|溶解度)\s*=\s*([^\n]+)',
+                    "蒸氣壓": r'\|\s*(?:VaporPressure|蒸氣壓|蒸汽压)\s*=\s*([^\n]+)'
                 }
                 
                 for key, pat in patterns.items():
                     if props.get(key) in ["無相關文獻數據", "無資料", "無", None]:
-                        match = re.search(pat, content)
+                        match = re.search(pat, content, re.IGNORECASE)
                         if match:
                             val = clean_val(match.group(1))
-                            if val and val != "=": 
-                                # 🚀 核心修正：直接寫入乾淨的數值，不帶任何 (Wiki備援) 字樣
+                            if val and val != "=":
+                                # 只有純數字才幫忙加單位
+                                if key in ["熔點", "沸點"] and re.match(r'^-?\d+(\.\d+)?$', val):
+                                    val = f"{val} °C"
                                 props[key] = val
-    except: pass
+    except Exception:
+        pass
     return props
 
 # ==========================================
@@ -197,7 +214,7 @@ def run_search(query_name):
     hba = c_std.h_bond_acceptor_count
     smiles = c_std.isomeric_smiles or c_std.canonical_smiles
 
-    # 🚀 執行雙軌混合：先從主資料庫撈取，缺項再由維基百科進行無痕補件
+    # 執行主引擎與兩段式無痕備援
     sds_props = fetch_sds_and_properties(cid)
     if contains_chinese(query_name):
         sds_props = fetch_wiki_silent_fallback(query_name, sds_props)
@@ -238,7 +255,7 @@ def run_search(query_name):
     return True, "Success"
 
 if 'initialized' not in st.session_state:
-    run_search("碘化鎂")  # 預設直接加載碘化鎂驗證無痕補件效果
+    run_search("碘化鎂") 
     st.session_state.initialized = True
 
 # --- 側邊欄參數配置面板 ---
@@ -369,34 +386,10 @@ with tab2:
                 <head>
                     <style>
                         body, html { margin: 0; padding: 0; background-color: #0e1117; width: 100%; height: 100%; overflow: hidden; box-sizing: border-box; }
-                        #fs-container {
-                            display: grid;
-                            grid-template-columns: 60% 40%;
-                            grid-template-rows: 450px 350px;
-                            width: 100%;
-                            height: 800px;
-                            background: #0e1117;
-                            position: relative;
-                        }
-                        #left-pane {
-                            grid-column: 1 / 2;
-                            grid-row: 1 / 3;
-                            border-right: 2px solid #333;
-                            overflow: hidden;
-                        }
-                        #top-right-pane {
-                            grid-column: 2 / 3;
-                            grid-row: 1 / 2;
-                            border-bottom: 2px solid #333;
-                            overflow-y: auto; 
-                        }
-                        #bottom-right-pane {
-                            grid-column: 2 / 3;
-                            grid-row: 2 / 3;
-                            overflow-y: auto;
-                            background: #1a1a1a;
-                            padding: 15px;
-                        }
+                        #fs-container { display: grid; grid-template-columns: 60% 40%; grid-template-rows: 450px 350px; width: 100%; height: 800px; background: #0e1117; position: relative; }
+                        #left-pane { grid-column: 1 / 2; grid-row: 1 / 3; border-right: 2px solid #333; overflow: hidden; }
+                        #top-right-pane { grid-column: 2 / 3; grid-row: 1 / 2; border-bottom: 2px solid #333; overflow-y: auto; }
+                        #bottom-right-pane { grid-column: 2 / 3; grid-row: 2 / 3; overflow-y: auto; background: #1a1a1a; padding: 15px; }
                     </style>
                 </head>
                 <body>
