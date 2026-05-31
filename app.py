@@ -16,7 +16,6 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
-# (已依照指示移除副標題說明文字)
 
 # ==========================================
 # 核心一：維基百科對接與修正引擎
@@ -30,7 +29,7 @@ LOCAL_CHEM_DICT = {
     "高錳酸鉀": "Potassium permanganate", "碳酸鈉": "Sodium carbonate",
     "氫氧化鈉": "Sodium hydroxide", "乙醇": "Ethanol", "甲醇": "Methanol",
     "苯": "Benzene", "水": "Water", "咖啡酸": "Caffeic acid",
-    "明礬": "Potassium aluminium sulfate"
+    "明礬": "Potassium aluminium sulfate", "碘化鎂": "Magnesium iodide"
 }
 
 def contains_chinese(text): 
@@ -47,12 +46,12 @@ def translate_via_wikipedia(zh_name):
 
 def fix_chemical_formula(formula):
     if not formula: return "無文獻資料"
-    fix_map = {"ClNa": "NaCl", "HNaO": "NaOH", "ClK": "KCl", "HKO": "KOH", "IK": "KI", "KNO2": "KNO₂", "NO2K": "KNO₂", "NO3K": "KNO₃", "C2H4O2": "CH₃COOH", "H2O": "H₂O"}
+    fix_map = {"ClNa": "NaCl", "HNaO": "NaOH", "ClK": "KCl", "HKO": "KOH", "IK": "KI", "KNO2": "KNO₂", "NO2K": "KNO₂", "NO3K": "KNO₃", "C2H4O2": "CH₃COOH", "H2O": "H₂O", "I2Mg": "MgI₂"}
     if formula in fix_map: return fix_map[formula]
     return formula
 
 # ==========================================
-# 核心二：數據抓取與智慧正規化引擎
+# 核心二：數據抓取與智慧正規化引擎 (100% 忠實呈現官方數據)
 # ==========================================
 def simplify_physical_state(text):
     if not text or text == "無相關文獻數據": return text
@@ -119,13 +118,6 @@ def fetch_sds_and_properties(cid):
     except: pass
     return props
 
-def get_mol_sdf(cid):
-    try:
-        res = requests.get(f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/record/SDF/?record_type=3d", timeout=5)
-        if res.status_code == 200: return res.text, "3D 立體"
-    except: pass
-    return None, "2D 平面"
-
 # ==========================================
 # 核心三：雙軌檢索邏輯
 # ==========================================
@@ -155,7 +147,6 @@ def run_search(query_name):
             if hasattr(atom, 'x') and atom.x is not None:
                 real_coords[atom.aid] = [atom.x, atom.y, atom.z]
     
-    # 維度判定：有實體座標即為 3D
     dim_type = "3D 立體" if len(real_coords) > 0 else "2D 平面"
     
     mw = c_std.molecular_weight
@@ -307,19 +298,15 @@ with tab2:
                     anim_frames.append(go.Frame(data=[go.Scatter3d(marker=dict(color=h, cmin=env_temp-5, cmax=init_temp+5), text=step_labels)], name=f"f{step}", traces=[len(st.session_state.mol_bonds)]))
                 fig3d.frames = anim_frames
 
-                # 3D 圖表全域設定
-                fig3d.update_layout(autosize=True, title="🔥 真實 3D 空間熱擴散", template="plotly_dark", margin=dict(l=10, r=10, b=10, t=40), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False), updatemenus=[dict(type="buttons", active=-1, showactive=False, y=-0.05, x=0.5, xanchor="center", direction="left", buttons=[dict(label="▶️ 播放聯動", method="animate", args=[None, dict(frame=dict(duration=anim_speed, redraw=True), fromcurrent=True, mode="immediate", transition=dict(duration=0))]), dict(label="⏸️ 暫停", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate", transition=dict(duration=0))])])])
+                fig3d.update_layout(height=800, autosize=False, title="🔥 真實 3D 空間熱擴散", template="plotly_dark", margin=dict(l=10, r=10, b=10, t=40), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False), updatemenus=[dict(type="buttons", active=-1, showactive=False, y=-0.05, x=0.5, xanchor="center", direction="left", buttons=[dict(label="▶️ 播放聯動", method="animate", args=[None, dict(frame=dict(duration=anim_speed, redraw=True), fromcurrent=True, mode="immediate", transition=dict(duration=0))]), dict(label="⏸️ 暫停", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate", transition=dict(duration=0))])])])
                 
                 fig2d = go.Figure()
                 fig2d.add_trace(go.Scatter(x=[times[0]], y=[c_hist[0]], mode='lines', name="中心點火源", line=dict(color='red', width=3)))
                 fig2d.add_trace(go.Scatter(x=[times[0]], y=[e_hist[0]], mode='lines', name="外圍測溫點", line=dict(color='blue', width=3)))
+                fig2d.update_layout(height=450, autosize=False, title="📈 絕對精確溫度動態變化 (°C)", template="plotly_dark", margin=dict(l=60, r=20, b=80, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[env_temp-10, init_temp+20], title="溫度 (°C)"))
                 
-                # 🚀 終極修復：將底部邊界 (b) 拉大到 80，確保 X 軸標籤絕對不被切除！
-                fig2d.update_layout(autosize=True, title="📈 絕對精確溫度動態變化 (°C)", template="plotly_dark", margin=dict(l=60, r=20, b=80, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[env_temp-10, init_temp+20], title="溫度 (°C)"))
-                
-                # 🚀 確保 to_html 時將 div 的寬高預設為 100%，由外部 CSS Grid 接管
-                html_3d = fig3d.to_html(include_plotlyjs='cdn', full_html=False, default_width='100%', default_height='100%', div_id='plot-3d')
-                html_2d = fig2d.to_html(include_plotlyjs=False, full_html=False, default_width='100%', default_height='100%', div_id='plot-2d')
+                html_3d = fig3d.to_html(include_plotlyjs='cdn', full_html=False, div_id='plot-3d')
+                html_2d = fig2d.to_html(include_plotlyjs=False, full_html=False, div_id='plot-2d')
                 
                 history_json = json.dumps([h.tolist() for h in history])
                 time_json = json.dumps(times.tolist())
@@ -338,9 +325,9 @@ with tab2:
                         #fs-container {
                             display: grid;
                             grid-template-columns: 60% 40%;
-                            grid-template-rows: 50% 50%;
+                            grid-template-rows: 450px 350px;
                             width: 100%;
-                            height: 780px;
+                            height: 800px;
                             background: #0e1117;
                             position: relative;
                         }
@@ -354,7 +341,7 @@ with tab2:
                             grid-column: 2 / 3;
                             grid-row: 1 / 2;
                             border-bottom: 2px solid #333;
-                            overflow: hidden;
+                            overflow-y: auto; 
                         }
                         #bottom-right-pane {
                             grid-column: 2 / 3;
@@ -362,10 +349,6 @@ with tab2:
                             overflow-y: auto;
                             background: #1a1a1a;
                             padding: 15px;
-                        }
-                        .js-plotly-plot, .plot-container {
-                            width: 100% !important;
-                            height: 100% !important;
                         }
                     </style>
                 </head>
@@ -406,10 +389,6 @@ with tab2:
                             if (gd3d && typeof gd3d.on === 'function' && gd2d && typeof Plotly !== 'undefined') {
                                 clearInterval(checkExist);
                                 
-                                // 🚀 啟動 Plotly 尺寸自適應引擎，強制對齊 CSS 網格
-                                Plotly.Plots.resize(gd3d);
-                                Plotly.Plots.resize(gd2d);
-
                                 gd3d.on('plotly_animatingframe', function(eventData) {
                                     var step = parseInt(eventData.name.replace('f', ''));
                                     var temps = h_data[step];
@@ -423,12 +402,6 @@ with tab2:
                                 });
                             }
                         }, 200);
-
-                        window.onload = function() {
-                            setTimeout(function() {
-                                window.dispatchEvent(new Event('resize'));
-                            }, 500);
-                        };
                     </script>
                 </body>
                 </html>
@@ -444,6 +417,6 @@ with tab2:
                     .replace("__EDGE_JSON__", edge_json)\
                     .replace("__ATOMS_JSON__", atoms_json)
                     
-                components.html(custom_html, height=800)
+                components.html(custom_html, height=850)
         else:
             st.info("💡 請點擊上方按鈕開始執行熱傳導模擬動畫並展開數據監控台。")
