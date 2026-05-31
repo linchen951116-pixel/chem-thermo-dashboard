@@ -16,7 +16,7 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
-st.markdown("搭載 **標準 CSS Grid 網格切割** 與 **圖表自適應引擎 (Autosize)**。徹底根絕畫面重疊與溢出，保證排版絕對穩定！")
+st.markdown("搭載 **標準 CSS Grid 網格切割** 與 **內邊距防護引擎 (Safe Margin Render)**。完美解決座標軸單位裁切問題！")
 
 # ==========================================
 # 核心一：維基百科學術名詞對接與修正引擎
@@ -288,7 +288,7 @@ with tab1:
         st.info("💡 請在左側輸入化學式或物質名稱，並按下「🔍 執行數據檢索」來啟動百科。")
 
 # ==========================================
-# 分頁 2：終極穩定 CSS Grid 聯動儀表板
+# 分頁 2：終極穩定 CSS Grid 聯動儀表板 (安全邊距校正版)
 # ==========================================
 with tab2:
     st.subheader(f"🔥 {st.session_state.mol_name} - 獨立視窗防溢出監控台")
@@ -347,14 +347,13 @@ with tab2:
                 core_hist.append(T_t[node_to_idx[core]])
                 edge_hist.append(T_t[node_to_idx[edge]])
             
-            # 🚀 第一張圖：3D 主畫布 (拔除所有寫死的高度與雜亂文字)
+            # 第一張圖：3D 主畫布 (優化左邊距，為顏色條挪空間)
             fig3d = go.Figure()
             fig3d.add_trace(go.Scatter3d(x=edge_x, y=edge_y, z=edge_z, mode='lines', line=dict(color='gray', width=3), hoverinfo='none'))
             
             init_T = history_frames[0]
             init_labels = [f"🔥 核心源<br>溫度: {init_T[node_to_idx[i]]:.1f}°C" if i == core else (f"❄️ 外圍點<br>溫度: {init_T[node_to_idx[i]]:.1f}°C" if i == edge else f"原子 {i}<br>溫度: {init_T[node_to_idx[i]]:.1f}°C") for i in atoms]
             
-            # 純粹 markers，靠 hover 顯示，畫面乾淨無比
             fig3d.add_trace(go.Scatter3d(
                 x=node_x, y=node_y, z=node_z, 
                 mode='markers',  
@@ -369,11 +368,10 @@ with tab2:
                 anim_frames.append(go.Frame(data=[go.Scatter3d(marker=dict(color=t_data), text=step_labels)], traces=[1], name=f"f{step}"))
             fig3d.frames = anim_frames
             
-            # 🚀 啟動 autosize=True，讓圖表充滿 CSS Grid 格子
             fig3d.update_layout(
                 autosize=True,
                 title="🔥 真實 3D 空間熱擴散", scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False),
-                template="plotly_dark", margin=dict(l=0, r=0, b=0, t=40), 
+                template="plotly_dark", margin=dict(l=10, r=10, b=30, t=40), # 🚀 優化 3D 畫布邊距
                 updatemenus=[dict(
                     type="buttons", active=-1, showactive=False, y=-0.05, x=0.5, xanchor="center", yanchor="top", direction="left",
                     buttons=[
@@ -384,14 +382,17 @@ with tab2:
             )
             html_3d = fig3d.to_html(include_plotlyjs="cdn", full_html=False, div_id="plot-3d")
 
-            # 🚀 第二張圖：2D 折線圖 (同樣拔除寫死高度)
+            # 🚀 第二張圖：2D 折線圖 (加大下邊距 b=65 避免橫軸單位被裁切；加大左邊距 l=55 避免縱軸單位被裁切)
             fig2d = go.Figure()
             fig2d.add_trace(go.Scatter(x=[time_steps[0]], y=[core_hist[0]], mode='lines', name=f'核心點火源', line=dict(color='red', width=3)))
             fig2d.add_trace(go.Scatter(x=[time_steps[0]], y=[edge_hist[0]], mode='lines', name=f'外圍測溫點', line=dict(color='blue', width=3)))
             fig2d.update_layout(
                 autosize=True,
-                title="📈 絕對精確溫度動態變化 (°C)", template="plotly_dark", margin=dict(l=40, r=20, b=40, t=40),
-                xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[env_temp-10, init_temp+20], title="溫度 (°C)")
+                title="📈 絕對精確溫度動態變化 (°C)", 
+                template="plotly_dark", 
+                margin=dict(l=55, r=25, b=65, t=40), # 🚀 核心修正：l=55, b=65 留出完美安全留白空間
+                xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), 
+                yaxis=dict(range=[env_temp-10, init_temp+20], title="溫度 (°C)")
             )
             html_2d = fig2d.to_html(include_plotlyjs=False, full_html=False, div_id="plot-2d")
 
@@ -416,7 +417,6 @@ with tab2:
                 table_html += f"<tr><td style='padding: 6px; border-bottom: 1px solid #333;'>Atom {atom}</td><td style='padding: 6px; border-bottom: 1px solid #333;'>{role}</td><td id='temp-{idx}' style='padding: 6px; border-bottom: 1px solid #333; font-weight: bold; color: #00ffcc;'>{init_T[node_to_idx[atom]]:.2f} °C</td></tr>"
             table_html += "</tbody></table>"
 
-            # 🚀 終極黑科技：回歸純正的 CSS Grid (60% / 40%)，並強制 Plotly 圖表填滿容器
             custom_html = f"""
             <!DOCTYPE html>
             <html>
@@ -424,7 +424,6 @@ with tab2:
                 <style>
                     body, html {{ margin: 0; padding: 0; background-color: #0e1117; width: 100%; height: 100%; overflow: hidden; }}
                     
-                    /* 真正穩定的九宮格佈局 */
                     #fs-container {{
                         display: grid;
                         grid-template-columns: 60% 40%;
@@ -453,10 +452,9 @@ with tab2:
                         grid-row: 2 / 3;
                         overflow-y: auto;
                         background: #1a1a1a;
-                        padding: 10px;
+                        padding: 15px; /* 增加內邊距防護 */
                     }}
                     
-                    /* 🔥 終極護城河：強迫 Plotly 產生出來的 canvas 跟隨格子大小，絕對不准越界 */
                     .js-plotly-plot, .plot-container {{
                         width: 100% !important;
                         height: 100% !important;
@@ -514,7 +512,7 @@ with tab2:
                         }}
                     }}, 200);
                     
-                    // 🚀 延遲射擊引擎：讓瀏覽器在 0.5 秒後自動假裝「縮放視窗」，強迫 Plotly 對齊！
+                    // 自動發射重繪訊號，確保初始比例精確
                     window.onload = function() {{
                         setTimeout(function() {{
                             window.dispatchEvent(new Event('resize'));
@@ -525,7 +523,7 @@ with tab2:
             </html>
             """
             components.html(custom_html, height=850)
-            st.success("✅ 真網格切割完畢！文字重疊已清除。您不需要手動放大，圖表會自動對齊邊界。")
+            st.success("✅ 內邊距修正完畢！已強行在圖表內部推開安全空間，座標軸單位「秒」與「°C」現在均可完美看見。")
 
     else:
         st.info("💡 請點擊上方「⚙️ 生成劇院級分離式底片」按鈕來啟動矩陣指數運算。")
