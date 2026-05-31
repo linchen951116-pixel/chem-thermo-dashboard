@@ -17,7 +17,7 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
-st.markdown("搭載 **原生 JS 毫秒級聯動引擎**，徹底告別當機與閃爍。3D 模型、2D 折線圖與即時溫度表，達到零延遲完美同步！")
+st.markdown("搭載 **原生 JS 毫秒級聯動引擎** 與 **圖論強制分離防護**。3D 模型、2D 折線圖與即時溫度表，達到零延遲完美同步！")
 
 # ==========================================
 # 核心一：維基百科學術名詞對接引擎
@@ -158,7 +158,7 @@ def generate_crystal_lattice_html(elements, style):
 with st.sidebar:
     st.header("⚙️ 全局參數設定面板")
     st.subheader("🔬 1. 物質百科檢索")
-    user_input = st.text_input("輸入化學式、中文試劑或藥品名稱", "Benzene").strip()
+    user_input = st.text_input("輸入化學式、中文試劑或藥品名稱", "Sodium chloride").strip()
     style = st.selectbox("3D 顯示風格", ["stick", "sphere", "line", "cross"])
     search_button = st.button("🔍 執行數據檢索", type="primary")
     
@@ -170,7 +170,9 @@ with st.sidebar:
     sim_duration = st.slider("模擬總時長 (秒)", min_value=3.0, max_value=30.0, value=10.0, step=1.0)
     anim_speed = st.slider("動畫播放速度 (每幀毫秒)", min_value=10, max_value=200, value=40, step=10)
 
-# 初始化與同步引擎
+# ==========================================
+# 狀態機與【智慧同步引擎】初始化
+# ==========================================
 if 'mol_atoms' not in st.session_state:
     st.session_state.mol_atoms = list(range(10))
     st.session_state.mol_bonds = [(0,4), (0,5), (0,6), (1,4), (1,7), (1,8), (2,5), (2,7), (2,9), (3,6), (3,8), (3,9)]
@@ -219,8 +221,18 @@ if search_button and user_input:
                 for a, b in bonds:
                     degree[a] = degree.get(a, 0) + 1
                     degree[b] = degree.get(b, 0) + 1
-                c_node = max(degree, key=degree.get) if degree else (atoms[0] if atoms else 0)
-                e_node = min(degree, key=degree.get) if degree else (atoms[-1] if atoms else 0)
+                
+                # 🚀 修復 Bug 1：強制分離機制，確保點火源與外圍點不會重疊
+                if degree:
+                    sorted_nodes = sorted(degree.keys(), key=lambda x: degree[x])
+                    c_node = sorted_nodes[-1] # 最多鍵的當 core
+                    e_node = sorted_nodes[0]  # 最少鍵的當 edge
+                    # 如果只有兩顆原子，它們鍵數相同，必須強制分離
+                    if c_node == e_node and len(atoms) > 1:
+                        e_node = [n for n in atoms if n != c_node][0]
+                else:
+                    c_node = atoms[0] if atoms else 0
+                    e_node = atoms[-1] if len(atoms) > 1 else 0
                 
                 sds_data = fetch_sds_and_properties(c.cid)
                 fixed_formula = fix_chemical_formula(c.molecular_formula)
@@ -262,7 +274,9 @@ with tab1:
             if sd["dim_type"] == "3D 立體" and sd["sdf_data"]:
                 viewer = py3Dmol.view(width=450, height=350)
                 viewer.addModel(sd["sdf_data"], "sdf")
-                viewer.setStyle({style: {}})
+                # 🚀 修復 Bug 2：底層保底球體渲染，防止隱形原子
+                if style == "sphere": viewer.setStyle({'sphere': {}})
+                else: viewer.setStyle({style: {}, 'sphere': {'radius': 0.3}})
                 viewer.setBackgroundColor('#f0f2f6')
                 viewer.zoomTo()
                 safe_html = viewer._make_html().replace("http://", "https://")
@@ -314,7 +328,7 @@ with tab1:
         st.info("💡 請在左側輸入化學式或物質名稱，並按下「🔍 執行數據檢索」來啟動百科。")
 
 # ==========================================
-# 分頁 2：原生全螢幕防當機動態熱傳導台 (無死角 JS 聯動版)
+# 分頁 2：原生全螢幕防當機動態熱傳導台
 # ==========================================
 with tab2:
     st.subheader(f"🔥 {st.session_state.mol_name} - 零延遲熱傳導戰情室")
@@ -368,7 +382,7 @@ with tab2:
         with st.spinner(f"⚡ 啟動高等微積分運算... 正在打包 {sim_duration} 秒的絕對精確底片！"):
             m, c_heat = 1.0, 1.0
             T_initial = np.array([st.session_state.particle_temps[i] for i in atoms])
-            time_steps = np.linspace(0, sim_duration, num=100) # 降為100幀確保瀏覽器流暢
+            time_steps = np.linspace(0, sim_duration, num=100)
             
             history_frames = []
             core_hist = []
@@ -513,15 +527,19 @@ with tab2:
                             }});
                         }}
                     }}, 200);
+                    
+                    // 🚀 制動引擎：強迫網頁載入時定格在第 0 幀
+                    window.onload = function() {{
+                        var gd = document.getElementsByClassName('plotly-graph-div')[0];
+                        if(gd) {{ Plotly.animate(gd, {{ frames: [{{name: 'f0'}}] }}); }}
+                    }};
                 </script>
             </body>
             </html>
             """
             
-            # 使用大容器將 圖表 與 表格 一併渲染出來
             components.html(custom_html, height=850)
-            
-            st.success("✅ 電影底片封裝成功！系統已進入『靜止待命狀態』。請直接點擊圖表右上方的【⤢ 劇院級全螢幕】，準備就緒後再按下播放。")
+            st.success("✅ 聯動底片封裝成功！系統已進入『靜止待命狀態』。請點擊圖表右上方的【⤢ 劇院級全螢幕】，準備就緒後再按下播放。")
 
     else:
         # 初始狀態預覽
