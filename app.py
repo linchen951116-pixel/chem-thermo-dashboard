@@ -18,7 +18,7 @@ st.set_page_config(page_title="中文化學物質分析與動態熱力學系統"
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
 
 # ==========================================
-# 核心一：在地核心數據庫 (解決無機鹽與常用藥品資料稀疏問題)
+# 核心一：在地核心數據庫 (全面鎖死演示物質，根絕網路波動導致的空值)
 # ==========================================
 LOCAL_CHEM_DICT = {
     "阿斯匹靈": "Aspirin", "普拿疼": "Acetaminophen", "雙氧水": "Hydrogen peroxide",
@@ -32,22 +32,49 @@ LOCAL_CHEM_DICT = {
     "明礬": "Potassium aluminium sulfate", "碘化鎂": "Magnesium iodide"
 }
 
-# 嚴謹學術實測數據庫：直接鎖死常用物質物理量，確保 100% 齊全且不依賴脆弱的爬蟲
+# 🚀 完整擴充核心數據庫：將核心共價分子與無機鹽數據硬編碼鎖定
 LOCAL_DATABASE = {
+    "Water": {
+        "外觀與性狀": "無色無味透明液體",
+        "密度": "1.00 g/cm³",
+        "熔點": "0.0 °C",
+        "沸點": "100.0 °C",
+        "閃點": "無相關文獻數據 (不可燃)",
+        "溶解度": "與多數極性溶劑完全互溶",
+        "蒸氣壓": "17.5 mmHg (20 °C)"
+    },
     "Magnesium iodide": {
         "外觀與性狀": "白色結晶性粉末，極易潮解",
         "密度": "4.48 g/cm³",
-        "熔點": "637 °C",
+        "熔點": "637.0 °C",
         "沸點": "無相關文獻數據 (加熱時分解)",
         "閃點": "無相關文獻數據",
         "溶解度": "極易溶於水 (140 g/100 mL, 20 °C)，溶於乙醇",
         "蒸氣壓": "無相關文獻數據"
     },
+    "Aspirin": {
+        "外觀與性狀": "白色結晶或結晶性粉末",
+        "密度": "1.40 g/cm³",
+        "熔點": "135.0 °C",
+        "沸點": "140.0 °C (分解)",
+        "閃點": "250.0 °C",
+        "溶解度": "微溶於水，易溶於乙醇、乙醚",
+        "蒸氣壓": "0.000041 mmHg (25 °C)"
+    },
+    "Acetaminophen": {
+        "外觀與性狀": "白色結晶性粉末",
+        "密度": "1.26 g/cm³",
+        "熔點": "169.0 °C",
+        "沸點": "> 500.0 °C",
+        "閃點": "無相關文獻數據",
+        "溶解度": "溶於熱水、乙醇",
+        "蒸氣壓": "0.000049 mmHg (25 °C)"
+    },
     "Potassium aluminium sulfate": {
         "外觀與性狀": "無色透明結晶或白色結晶性粉末，無臭",
         "密度": "1.757 g/cm³",
         "熔點": "92.5 °C",
-        "沸點": "200 °C (失去結晶水分解)",
+        "沸點": "200.0 °C (失去結晶水分解)",
         "閃點": "無相關文獻數據",
         "溶解度": "易溶於水 (14.0 g/100 mL, 20 °C)，不溶於乙醇",
         "蒸氣壓": "無相關文獻數據"
@@ -55,8 +82,8 @@ LOCAL_DATABASE = {
     "Sodium chloride": {
         "外觀與性狀": "白色結晶性粉末或立方晶體",
         "密度": "2.165 g/cm³",
-        "熔點": "801 °C",
-        "沸點": "1413 °C",
+        "熔點": "801.0 °C",
+        "沸點": "1413.0 °C",
         "閃點": "無相關文獻數據",
         "溶解度": "易溶於水 (36.0 g/100 mL, 20 °C)",
         "蒸氣壓": "1 mmHg (865 °C)"
@@ -77,12 +104,12 @@ def translate_via_wikipedia(zh_name):
 
 def fix_chemical_formula(formula):
     if not formula: return "無文獻資料"
-    fix_map = {"ClNa": "NaCl", "HNaO": "NaOH", "ClK": "KCl", "HKO": "KOH", "IK": "KI", "KNO2": "KNO₂", "NO2K": "KNO₂", "NO3K": "KNO₃", "C2H4O2": "CH₃COOH", "H2O": "H2O", "I2Mg": "MgI₂"}
+    fix_map = {"ClNa": "NaCl", "HNaO": "NaOH", "ClK": "KCl", "HKO": "KOH", "IK": "KI", "KNO2": "KNO₂", "NO2K": "KNO₂", "NO3K": "KNO₃", "C2H4O2": "CH₃COOH", "H2O": "H₂O", "I2Mg": "MgI₂"}
     if formula in fix_map: return fix_map[formula]
     return formula
 
 # ==========================================
-# 核心二：數據抓取與智慧正規化引擎 (主引擎)
+# 核心二": 數據抓取與智慧正規化引擎 (主引擎)
 # ==========================================
 def simplify_physical_state(text):
     if not text or text == "無相關文獻數據": return text
@@ -106,13 +133,12 @@ def standardize_temperature(raw_str):
 def fetch_sds_and_properties(cid, english_name):
     props = {"外觀與性狀": "無相關文獻數據", "密度": "無相關文獻數據", "熔點": "無相關文獻數據", "沸點": "無相關文獻數據", "閃點": "無相關文獻數據", "溶解度": "無相關文獻數據", "蒸氣壓": "無相關文獻數據", "危險信號詞": "無標示 / 安全", "危害警告": []}
     
-    # 雙軌優先級：檢查該物質是否在本地核心數據庫中
     std_name = english_name.capitalize()
     is_local = std_name in LOCAL_DATABASE
     local_data = LOCAL_DATABASE[std_name] if is_local else {}
 
     try:
-        url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/JSON"
+        url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/{cid}/JSON"
         res = requests.get(url, timeout=10).json()
         sections = res.get("Record", {}).get("Section", [])
         p_map = {"Physical Description": "外觀與性狀", "Density": "密度", "Melting Point": "熔點", "Boiling Point": "沸點", "Flash Point": "閃點", "Solubility": "溶解度", "Vapor Pressure": "蒸氣壓"}
@@ -154,7 +180,7 @@ def fetch_sds_and_properties(cid, english_name):
                                             except: props["危害警告"] = raw_h[:5]
     except: pass
 
-    # 無痕補件：若主資料庫查無數據，且本地數據庫存在此物質，則以本地數據覆蓋無效欄位
+    # 無痕混合機制：若 API 擷取因任何異常產生空項，直接由本地對應物理量無縫填補
     if is_local:
         for k in props.keys():
             if props[k] in ["無相關文獻數據", "無資料", "無", None] and k in local_data:
@@ -199,7 +225,6 @@ def run_search(query_name):
     hba = c_std.h_bond_acceptor_count
     smiles = c_std.isomeric_smiles or c_std.canonical_smiles
 
-    # 執行主引擎與本地數據庫無痕融合
     sds_props = fetch_sds_and_properties(cid, english_name)
 
     st.session_state.search_data = {
@@ -237,7 +262,7 @@ def run_search(query_name):
     st.session_state.particle_temps[st.session_state.core_node] = 500.0
     return True, "Success"
 
-# 🚀 關鍵修正 1：將 initialized 預設初載物質從「碘化鎂」改回「水」
+# 🚀 預設首頁直接載入水分子資料
 if 'initialized' not in st.session_state:
     run_search("水") 
     st.session_state.initialized = True
@@ -245,7 +270,6 @@ if 'initialized' not in st.session_state:
 # --- 側邊欄參數配置面板 ---
 with st.sidebar:
     st.header("⚙️ 控制面板")
-    # 🚀 關鍵修正 2：將輸入框的預設提示詞同步改為「水」
     user_input = st.text_input("輸入化學名稱 (中文/英文)", "水").strip()
     style = st.selectbox("3D 渲染風格", ["stick", "sphere", "line", "cross"])
     search_button = st.button("🔍 檢索數據", type="primary")
