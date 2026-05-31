@@ -46,7 +46,7 @@ def translate_via_wikipedia(zh_name):
 
 def fix_chemical_formula(formula):
     if not formula: return "無文獻資料"
-    fix_map = {"ClNa": "NaCl", "HNaO": "NaOH", "ClK": "KCl", "HKO": "KOH", "IK": "KI", "KNO2": "KNO2", "NO2K": "KNO2", "NO3K": "KNO3", "C2H4O2": "CH3COOH", "H2O": "H2O"}
+    fix_map = {"ClNa": "NaCl", "HNaO": "NaOH", "ClK": "KCl", "HKO": "KOH", "IK": "KI", "KNO2": "KNO₂", "NO2K": "KNO₂", "NO3K": "KNO₃", "C2H4O2": "CH₃COOH", "H2O": "H₂O"}
     if formula in fix_map: return fix_map[formula]
     return formula
 
@@ -270,10 +270,7 @@ with tab2:
         st.warning("⚠️ 系統安全攔截：偵測到當前物質僅具備 2D 平面結構數據，已自動阻斷 3D 熱傳導模擬。")
         st.info("請在左側重新檢索具備立體座標的分子（例如：**水**、**阿斯匹靈**、**咖啡酸**、**苯**），即可解鎖流暢的 3D 動態模擬！")
     else:
-        # 🚀 修正點 2：改為中規中矩的專業標題名稱
         st.subheader(f"📊 {st.session_state.mol_name} - 3D 熱傳導動態模擬監控台")
-        
-        # 🚀 修正點 3：去除劇院級底片等中二修辭，改為學術規範用字
         start_anim = st.button("▶️ 開始執行熱傳導模擬動畫", type="primary", use_container_width=True)
         
         if start_anim:
@@ -313,7 +310,9 @@ with tab2:
                 fig2d = go.Figure()
                 fig2d.add_trace(go.Scatter(x=[times[0]], y=[c_hist[0]], mode='lines', name="中心點火源", line=dict(color='red', width=3)))
                 fig2d.add_trace(go.Scatter(x=[times[0]], y=[e_hist[0]], mode='lines', name="外圍測溫點", line=dict(color='blue', width=3)))
-                fig2d.update_layout(autosize=True, title="📈 絕對精確溫度動態變化 (°C)", template="plotly_dark", margin=dict(l=60, r=20, b=60, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[env_temp-10, init_temp+20], title="溫度 (°C)")
+                
+                # 🚀 這裡補上缺失的右括號 )，解決 SyntaxError！
+                fig2d.update_layout(autosize=True, title="📈 絕對精確溫度動態變化 (°C)", template="plotly_dark", margin=dict(l=60, r=20, b=60, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[env_temp-10, init_temp+20], title="溫度 (°C)"))
                 
                 html_3d = fig3d.to_html(include_plotlyjs='cdn', full_html=False, default_width='100%', default_height='100%', div_id='plot-3d', config={'responsive': True})
                 html_2d = fig2d.to_html(include_plotlyjs=False, full_html=False, default_width='100%', default_height='100%', div_id='plot-2d', config={'responsive': True})
@@ -414,5 +413,4 @@ with tab2:
                     
                 components.html(custom_html, height=800)
         else:
-            # 🚀 修正點 3 同步：下方的說明文字也一併同步改為標準專業風格
-            st.info("💡 請點擊上方按鈕開始生成熱傳導模擬動畫並展開數據監控台。")
+            st.info("💡 請點擊上方按鈕開始執行熱傳導模擬動畫並展開數據監控台。")
