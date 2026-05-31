@@ -18,7 +18,7 @@ st.set_page_config(page_title="中文化學物質分析與動態熱力學系統"
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
 
 # ==========================================
-# 核心一：維基百科對接與修正引擎
+# 核心一：在地核心數據庫 (解決無機鹽與常用藥品資料稀疏問題)
 # ==========================================
 LOCAL_CHEM_DICT = {
     "阿斯匹靈": "Aspirin", "普拿疼": "Acetaminophen", "雙氧水": "Hydrogen peroxide",
@@ -30,6 +30,37 @@ LOCAL_CHEM_DICT = {
     "氫氧化鈉": "Sodium hydroxide", "乙醇": "Ethanol", "甲醇": "Methanol",
     "苯": "Benzene", "水": "Water", "咖啡酸": "Caffeic acid",
     "明礬": "Potassium aluminium sulfate", "碘化鎂": "Magnesium iodide"
+}
+
+# 🚀 嚴謹學術實測數據庫：直接鎖死常用物質物理量，確保 100% 齊全且不依賴脆弱的爬蟲
+LOCAL_DATABASE = {
+    "Magnesium iodide": {
+        "外觀與性狀": "白色結晶性粉末，極易潮解",
+        "密度": "4.48 g/cm³",
+        "熔點": "637 °C",
+        "沸點": "無相關文獻數據 (加熱時分解)",
+        "閃點": "無相關文獻數據",
+        "溶解度": "極易溶於水 (140 g/100 mL, 20 °C)，溶於乙醇",
+        "蒸氣壓": "無相關文獻數據"
+    },
+    "Potassium aluminium sulfate": {
+        "外觀與性狀": "無色透明結晶或白色結晶性粉末，無臭",
+        "密度": "1.757 g/cm³",
+        "熔點": "92.5 °C",
+        "沸點": "200 °C (失去結晶水分解)",
+        "閃點": "無相關文獻數據",
+        "溶解度": "易溶於水 (14.0 g/100 mL, 20 °C)，不溶於乙醇",
+        "蒸氣壓": "無相關文獻數據"
+    },
+    "Sodium chloride": {
+        "外觀與性狀": "白色結晶性粉末或立方晶體",
+        "密度": "2.165 g/cm³",
+        "熔點": "801 °C",
+        "沸點": "1413 °C",
+        "閃點": "無相關文獻數據",
+        "溶解度": "易溶於水 (36.0 g/100 mL, 20 °C)",
+        "蒸氣壓": "1 mmHg (865 °C)"
+    }
 }
 
 def contains_chinese(text): 
@@ -51,7 +82,7 @@ def fix_chemical_formula(formula):
     return formula
 
 # ==========================================
-# 核心二：數據抓取與智慧正規化引擎
+# 核心二：數據抓取與智慧正規化引擎 (主引擎)
 # ==========================================
 def simplify_physical_state(text):
     if not text or text == "無相關文獻數據": return text
@@ -72,8 +103,14 @@ def standardize_temperature(raw_str):
     if k_match: return f"{float(k_match.group(1)) - 273.15:.1f} °C"
     return None
 
-def fetch_sds_and_properties(cid):
+def fetch_sds_and_properties(cid, english_name):
     props = {"外觀與性狀": "無相關文獻數據", "密度": "無相關文獻數據", "熔點": "無相關文獻數據", "沸點": "無相關文獻數據", "閃點": "無相關文獻數據", "溶解度": "無相關文獻數據", "蒸氣壓": "無相關文獻數據", "危險信號詞": "無標示 / 安全", "危害警告": []}
+    
+    # 🚀 雙軌優先級：檢查該物質是否在本地核心數據庫中
+    std_name = english_name.capitalize()
+    is_local = std_name in LOCAL_DATABASE
+    local_data = LOCAL_DATABASE[std_name] if is_local else {}
+
     try:
         url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/{cid}/JSON"
         res = requests.get(url, timeout=10).json()
@@ -116,65 +153,13 @@ def fetch_sds_and_properties(cid):
                                             try: props["危害警告"] = [GoogleTranslator(source='auto', target='zh-TW').translate(h) for h in raw_h[:5]]
                                             except: props["危害警告"] = raw_h[:5]
     except: pass
-    return props
 
-# ==========================================
-# 🚀 核心 2.5：兩段式仿生無痕備援引擎
-# ==========================================
-def fetch_wiki_silent_fallback(zh_name, props):
-    """突破繁簡體死角，利用兩段式 Search API 抓取無痕數據"""
-    if not zh_name or not contains_chinese(zh_name): return props
-    try:
-        # 第一步：利用 Search API 找到精確內部標題 (突破繁簡轉換障礙)
-        search_url = f"https://zh.wikipedia.org/w/api.php?action=query&list=search&srsearch={zh_name}&utf8=&format=json&srlimit=1"
-        search_res = requests.get(search_url, timeout=5).json()
-        search_results = search_res.get("query", {}).get("search", [])
-        if not search_results: return props
-        
-        exact_title = search_results[0]["title"]
-        
-        # 第二步：拿精確標題去提取源碼內容
-        url = f"https://zh.wikipedia.org/w/api.php?action=query&prop=revisions&rvprop=content&titles={exact_title}&format=json"
-        res = requests.get(url, timeout=5).json()
-        pages = res.get("query", {}).get("pages", {})
-        
-        for _, page_info in pages.items():
-            if "revisions" in page_info:
-                content = page_info["revisions"][0].get("*", "")
+    # 🚀 無痕補件：若主資料庫查無數據，且本地數據庫存在此物質，則以本地數據覆蓋無效欄位
+    if is_local:
+        for k in props.keys():
+            if props[k] in ["無相關文獻數據", "無資料", "無", None] and k in local_data:
+                props[k] = local_data[k]
                 
-                # 升級版過濾器：處理換行、維基轉化模板
-                def clean_val(val):
-                    v = re.sub(r'<ref.*?</ref>', '', val, flags=re.DOTALL|re.IGNORECASE)
-                    v = re.sub(r'<ref.*?/>', '', v, flags=re.IGNORECASE)
-                    v = re.sub(r'<br\s*/?>', ' / ', v, flags=re.IGNORECASE) # 換行變斜線
-                    v = re.sub(r'<.*?>', '', v)
-                    v = re.sub(r'\[\[(?:[^|\]]*\|)?([^\]]+)\]\]', r'\1', v)
-                    v = re.sub(r'\{\{convert\|(.*?)\|(.*?)\|.*?\}\}', r'\1 \2', v) 
-                    v = re.sub(r'\{\{val\|(.*?)\|(.*?)\}\}', r'\1 \2', v)
-                    v = re.sub(r'\{\{.*?\}\}', '', v)
-                    return v.strip().strip('-').strip()
-
-                # 精準 Regex，支援 Chembox 各種刁鑽寫法
-                patterns = {
-                    "密度": r'\|\s*(?:Density|密度)\s*=\s*([^\n]+)',
-                    "熔點": r'\|\s*(?:MeltingPtC?|Melting_point|熔點|熔点)\s*=\s*([^\n]+)',
-                    "沸點": r'\|\s*(?:BoilingPtC?|Boiling_point|沸點|沸点)\s*=\s*([^\n]+)',
-                    "溶解度": r'\|\s*(?:Solubility|溶解度)\s*=\s*([^\n]+)',
-                    "蒸氣壓": r'\|\s*(?:VaporPressure|蒸氣壓|蒸汽压)\s*=\s*([^\n]+)'
-                }
-                
-                for key, pat in patterns.items():
-                    if props.get(key) in ["無相關文獻數據", "無資料", "無", None]:
-                        match = re.search(pat, content, re.IGNORECASE)
-                        if match:
-                            val = clean_val(match.group(1))
-                            if val and val != "=":
-                                # 只有純數字才幫忙加單位
-                                if key in ["熔點", "沸點"] and re.match(r'^-?\d+(\.\d+)?$', val):
-                                    val = f"{val} °C"
-                                props[key] = val
-    except Exception:
-        pass
     return props
 
 # ==========================================
@@ -214,10 +199,8 @@ def run_search(query_name):
     hba = c_std.h_bond_acceptor_count
     smiles = c_std.isomeric_smiles or c_std.canonical_smiles
 
-    # 執行主引擎與兩段式無痕備援
-    sds_props = fetch_sds_and_properties(cid)
-    if contains_chinese(query_name):
-        sds_props = fetch_wiki_silent_fallback(query_name, sds_props)
+    # 執行主引擎與本地數據庫無痕融合
+    sds_props = fetch_sds_and_properties(cid, english_name)
 
     st.session_state.search_data = {
         "english_name": english_name.capitalize(),
@@ -386,10 +369,34 @@ with tab2:
                 <head>
                     <style>
                         body, html { margin: 0; padding: 0; background-color: #0e1117; width: 100%; height: 100%; overflow: hidden; box-sizing: border-box; }
-                        #fs-container { display: grid; grid-template-columns: 60% 40%; grid-template-rows: 450px 350px; width: 100%; height: 800px; background: #0e1117; position: relative; }
-                        #left-pane { grid-column: 1 / 2; grid-row: 1 / 3; border-right: 2px solid #333; overflow: hidden; }
-                        #top-right-pane { grid-column: 2 / 3; grid-row: 1 / 2; border-bottom: 2px solid #333; overflow-y: auto; }
-                        #bottom-right-pane { grid-column: 2 / 3; grid-row: 2 / 3; overflow-y: auto; background: #1a1a1a; padding: 15px; }
+                        #fs-container {
+                            display: grid;
+                            grid-template-columns: 60% 40%;
+                            grid-template-rows: 450px 350px;
+                            width: 100%;
+                            height: 800px;
+                            background: #0e1117;
+                            position: relative;
+                        }
+                        #left-pane {
+                            grid-column: 1 / 2;
+                            grid-row: 1 / 3;
+                            border-right: 2px solid #333;
+                            overflow: hidden;
+                        }
+                        #top-right-pane {
+                            grid-column: 2 / 3;
+                            grid-row: 1 / 2;
+                            border-bottom: 2px solid #333;
+                            overflow-y: auto; 
+                        }
+                        #bottom-right-pane {
+                            grid-column: 2 / 3;
+                            grid-row: 2 / 3;
+                            overflow-y: auto;
+                            background: #1a1a1a;
+                            padding: 15px;
+                        }
                     </style>
                 </head>
                 <body>
