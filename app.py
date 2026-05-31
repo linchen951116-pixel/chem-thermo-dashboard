@@ -209,7 +209,7 @@ with st.sidebar:
     search_button = st.button("🔍 檢索數據", type="primary")
     st.markdown("---")
     env_temp = st.slider("環境溫度設定 (°C)", -20.0, 60.0, 25.0, step=0.5)
-    init_temp = p = st.slider("中心點火溫度 (°C)", 50.0, 500.0, 500.0, step=10.0)
+    init_temp = st.slider("中心點火溫度 (°C)", 50.0, 500.0, 500.0, step=10.0)
     k_val = st.slider("熱傳導係數 (k)", 0.01, 0.50, 0.15, step=0.01)
     sim_duration = st.slider("模擬總時長 (秒)", 3.0, 30.0, 10.0, step=1.0)
     anim_speed = st.slider("動畫每幀延遲 (ms)", 10, 200, 40, step=10)
@@ -310,7 +310,7 @@ with tab2:
                 fig2d = go.Figure()
                 fig2d.add_trace(go.Scatter(x=[times[0]], y=[c_hist[0]], mode='lines', name="中心點火源", line=dict(color='red', width=3)))
                 fig2d.add_trace(go.Scatter(x=[times[0]], y=[e_hist[0]], mode='lines', name="外圍測溫點", line=dict(color='blue', width=3)))
-                fig2d.update_layout(autosize=True, title="📈 絕對精確溫度動態變化 (°C)", template="plotly_dark", margin=dict(l=60, r=20, b=60, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[env_temp-10, init_temp+20], title="溫度 (°C)"))
+                fig2d.update_layout(autosize=True, title="📈 溫度隨時間動態變化趨勢 (°C)", template="plotly_dark", margin=dict(l=65, r=25, b=65, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[env_temp-10, init_temp+20], title="溫度 (°C)"))
                 
                 html_3d = fig3d.to_html(include_plotlyjs='cdn', full_html=False, default_width='100%', default_height='100%', div_id='plot-3d', config={'responsive': True})
                 html_2d = fig2d.to_html(include_plotlyjs=False, full_html=False, default_width='100%', default_height='100%', div_id='plot-2d', config={'responsive': True})
@@ -323,7 +323,7 @@ with tab2:
                 
                 table_rows = "".join([f"<tr style='border-bottom:1px solid #333;'><td style='padding:6px;'>Atom {id}</td><td style='padding:6px;'>{'🔥 核心源' if id == st.session_state.core_node else '❄️ 外部點' if id == st.session_state.edge_node else '傳導中圈'}</td><td id='temp-{i}' style='color:#00ffcc; font-weight:bold; padding:6px;'>{init_h[i]:.2f} °C</td></tr>" for i, id in enumerate(st.session_state.mol_atoms)])
 
-                # 🚀 終極網格錨定佈局：採用百分比固定高度 (780px) 完美填滿 800px 畫布，根除排版破裂
+                # 🚀 終極固定結構佈局：明確鎖定每一子面板的寬高百分比，並在載入時透過 JavaScript 調用原生的 Plotly.Plots.resize()，根除破版。
                 html_template = """
                 <!DOCTYPE html>
                 <html>
@@ -344,12 +344,16 @@ with tab2:
                             grid-row: 1 / 3;
                             border-right: 2px solid #333;
                             overflow: hidden;
+                            height: 100%;
+                            width: 100%;
                         }
                         #top-right-pane {
                             grid-column: 2 / 3;
                             grid-row: 1 / 2;
                             border-bottom: 2px solid #333;
                             overflow: hidden;
+                            height: 100%;
+                            width: 100%;
                         }
                         #bottom-right-pane {
                             grid-column: 2 / 3;
@@ -357,6 +361,8 @@ with tab2:
                             overflow-y: auto;
                             background: #1a1a1a;
                             padding: 15px;
+                            height: 100%;
+                            box-sizing: border-box;
                         }
                         .js-plotly-plot, .plot-container {
                             width: 100% !important;
@@ -400,6 +406,11 @@ with tab2:
                             var gd2d = document.getElementById('plot-2d');
                             if (gd3d && typeof gd3d.on === 'function' && gd2d && typeof Plotly !== 'undefined') {
                                 clearInterval(checkExist);
+                                
+                                // 🚀 核心修復：在偵測到繪圖引擎就位時，立刻強制觸發 Plotly 原生重繪，完美對齊 CSS 網格。
+                                Plotly.Plots.resize(gd3d);
+                                Plotly.Plots.resize(gd2d);
+
                                 gd3d.on('plotly_animatingframe', function(eventData) {
                                     var step = parseInt(eventData.name.replace('f', ''));
                                     var temps = h_data[step];
