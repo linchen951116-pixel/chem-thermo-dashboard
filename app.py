@@ -51,7 +51,7 @@ def fix_chemical_formula(formula):
     return formula
 
 # ==========================================
-# 核心二：數據抓取與智慧正規化引擎 (100% 忠實呈現官方數據)
+# 核心二：數據抓取與智慧正規化引擎 (主引擎)
 # ==========================================
 def simplify_physical_state(text):
     if not text or text == "無相關文獻數據": return text
@@ -119,6 +119,48 @@ def fetch_sds_and_properties(cid):
     return props
 
 # ==========================================
+# 🚀 核心 2.5：無痕備援引擎 (靜默萃取 Wikipedia 資訊框)
+# ==========================================
+def fetch_wiki_silent_fallback(zh_name, props):
+    """當 PubChem 數據缺漏時，無痕調取維基百科化學盒，不顯示任何標籤標記"""
+    if not zh_name or not contains_chinese(zh_name): return props
+    try:
+        url = f"https://zh.wikipedia.org/w/api.php?action=query&prop=revisions&rvprop=content&titles={zh_name}&format=json"
+        res = requests.get(url, timeout=5).json()
+        pages = res.get("query", {}).get("pages", {})
+        for _, page_info in pages.items():
+            if "revisions" in page_info:
+                content = page_info["revisions"][0].get("*", "")
+                
+                def clean_val(val):
+                    v = re.sub(r'<ref.*?</ref>', '', val, flags=re.DOTALL)
+                    v = re.sub(r'<ref.*?/>', '', v) 
+                    v = re.sub(r'<.*?>', ' ', v)
+                    v = re.sub(r'\[\[(?:[^|\]]*\|)?([^\]]+)\]\]', r'\1', v)
+                    v = re.sub(r'\{\{val\|(.*?)\|(.*?)\}\}', r'\1 \2', v)
+                    v = re.sub(r'\{\{.*?\}\}', '', v)
+                    return v.strip()
+
+                patterns = {
+                    "密度": r'\|\s*密度\s*=\s*(.*?)\n',
+                    "熔點": r'\|\s*熔點\s*=\s*(.*?)\n',
+                    "沸點": r'\|\s*沸點\s*=\s*(.*?)\n',
+                    "溶解度": r'\|\s*溶解度\s*=\s*(.*?)\n',
+                    "蒸氣壓": r'\|\s*蒸氣壓\s*=\s*(.*?)\n'
+                }
+                
+                for key, pat in patterns.items():
+                    if props.get(key) in ["無相關文獻數據", "無資料", "無", None]:
+                        match = re.search(pat, content)
+                        if match:
+                            val = clean_val(match.group(1))
+                            if val and val != "=": 
+                                # 🚀 核心修正：直接寫入乾淨的數值，不帶任何 (Wiki備援) 字樣
+                                props[key] = val
+    except: pass
+    return props
+
+# ==========================================
 # 核心三：雙軌檢索邏輯
 # ==========================================
 def run_search(query_name):
@@ -155,6 +197,11 @@ def run_search(query_name):
     hba = c_std.h_bond_acceptor_count
     smiles = c_std.isomeric_smiles or c_std.canonical_smiles
 
+    # 🚀 執行雙軌混合：先從主資料庫撈取，缺項再由維基百科進行無痕補件
+    sds_props = fetch_sds_and_properties(cid)
+    if contains_chinese(query_name):
+        sds_props = fetch_wiki_silent_fallback(query_name, sds_props)
+
     st.session_state.search_data = {
         "english_name": english_name.capitalize(),
         "cid": cid,
@@ -164,7 +211,7 @@ def run_search(query_name):
         "h_bond_donor_count": hbd if hbd is not None else "無",
         "h_bond_acceptor_count": hba if hba is not None else "無",
         "isomeric_smiles": smiles if smiles is not None else "無資料",
-        "sds_data": fetch_sds_and_properties(cid),
+        "sds_data": sds_props,
         "dim_type": dim_type
     }
     
@@ -191,13 +238,13 @@ def run_search(query_name):
     return True, "Success"
 
 if 'initialized' not in st.session_state:
-    run_search("水")
+    run_search("碘化鎂")  # 預設直接加載碘化鎂驗證無痕補件效果
     st.session_state.initialized = True
 
 # --- 側邊欄參數配置面板 ---
 with st.sidebar:
     st.header("⚙️ 控制面板")
-    user_input = st.text_input("輸入化學名稱 (中文/英文)", "水").strip()
+    user_input = st.text_input("輸入化學名稱 (中文/英文)", "碘化鎂").strip()
     style = st.selectbox("3D 渲染風格", ["stick", "sphere", "line", "cross"])
     search_button = st.button("🔍 檢索數據", type="primary")
     st.markdown("---")
