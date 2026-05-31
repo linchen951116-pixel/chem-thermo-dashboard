@@ -32,7 +32,7 @@ LOCAL_CHEM_DICT = {
     "明礬": "Potassium aluminium sulfate", "碘化鎂": "Magnesium iodide"
 }
 
-# 🚀 嚴謹學術實測數據庫：直接鎖死常用物質物理量，確保 100% 齊全且不依賴脆弱的爬蟲
+# 嚴謹學術實測數據庫：直接鎖死常用物質物理量，確保 100% 齊全且不依賴脆弱的爬蟲
 LOCAL_DATABASE = {
     "Magnesium iodide": {
         "外觀與性狀": "白色結晶性粉末，極易潮解",
@@ -77,7 +77,7 @@ def translate_via_wikipedia(zh_name):
 
 def fix_chemical_formula(formula):
     if not formula: return "無文獻資料"
-    fix_map = {"ClNa": "NaCl", "HNaO": "NaOH", "ClK": "KCl", "HKO": "KOH", "IK": "KI", "KNO2": "KNO₂", "NO2K": "KNO₂", "NO3K": "KNO₃", "C2H4O2": "CH₃COOH", "H2O": "H₂O", "I2Mg": "MgI₂"}
+    fix_map = {"ClNa": "NaCl", "HNaO": "NaOH", "ClK": "KCl", "HKO": "KOH", "IK": "KI", "KNO2": "KNO₂", "NO2K": "KNO₂", "NO3K": "KNO₃", "C2H4O2": "CH₃COOH", "H2O": "H2O", "I2Mg": "MgI₂"}
     if formula in fix_map: return fix_map[formula]
     return formula
 
@@ -106,13 +106,13 @@ def standardize_temperature(raw_str):
 def fetch_sds_and_properties(cid, english_name):
     props = {"外觀與性狀": "無相關文獻數據", "密度": "無相關文獻數據", "熔點": "無相關文獻數據", "沸點": "無相關文獻數據", "閃點": "無相關文獻數據", "溶解度": "無相關文獻數據", "蒸氣壓": "無相關文獻數據", "危險信號詞": "無標示 / 安全", "危害警告": []}
     
-    # 🚀 雙軌優先級：檢查該物質是否在本地核心數據庫中
+    # 雙軌優先級：檢查該物質是否在本地核心數據庫中
     std_name = english_name.capitalize()
     is_local = std_name in LOCAL_DATABASE
     local_data = LOCAL_DATABASE[std_name] if is_local else {}
 
     try:
-        url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/{cid}/JSON"
+        url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/JSON"
         res = requests.get(url, timeout=10).json()
         sections = res.get("Record", {}).get("Section", [])
         p_map = {"Physical Description": "外觀與性狀", "Density": "密度", "Melting Point": "熔點", "Boiling Point": "沸點", "Flash Point": "閃點", "Solubility": "溶解度", "Vapor Pressure": "蒸氣壓"}
@@ -154,7 +154,7 @@ def fetch_sds_and_properties(cid, english_name):
                                             except: props["危害警告"] = raw_h[:5]
     except: pass
 
-    # 🚀 無痕補件：若主資料庫查無數據，且本地數據庫存在此物質，則以本地數據覆蓋無效欄位
+    # 無痕補件：若主資料庫查無數據，且本地數據庫存在此物質，則以本地數據覆蓋無效欄位
     if is_local:
         for k in props.keys():
             if props[k] in ["無相關文獻數據", "無資料", "無", None] and k in local_data:
@@ -237,14 +237,16 @@ def run_search(query_name):
     st.session_state.particle_temps[st.session_state.core_node] = 500.0
     return True, "Success"
 
+# 🚀 關鍵修正 1：將 initialized 預設初載物質從「碘化鎂」改回「水」
 if 'initialized' not in st.session_state:
-    run_search("碘化鎂") 
+    run_search("水") 
     st.session_state.initialized = True
 
 # --- 側邊欄參數配置面板 ---
 with st.sidebar:
     st.header("⚙️ 控制面板")
-    user_input = st.text_input("輸入化學名稱 (中文/英文)", "碘化鎂").strip()
+    # 🚀 關鍵修正 2：將輸入框的預設提示詞同步改為「水」
+    user_input = st.text_input("輸入化學名稱 (中文/英文)", "水").strip()
     style = st.selectbox("3D 渲染風格", ["stick", "sphere", "line", "cross"])
     search_button = st.button("🔍 檢索數據", type="primary")
     st.markdown("---")
