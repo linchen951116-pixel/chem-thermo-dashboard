@@ -16,6 +16,7 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
+# (已依照指示移除副標題說明文字)
 
 # ==========================================
 # 核心一：維基百科對接與修正引擎
@@ -154,6 +155,7 @@ def run_search(query_name):
             if hasattr(atom, 'x') and atom.x is not None:
                 real_coords[atom.aid] = [atom.x, atom.y, atom.z]
     
+    # 維度判定：有實體座標即為 3D
     dim_type = "3D 立體" if len(real_coords) > 0 else "2D 平面"
     
     mw = c_std.molecular_weight
@@ -287,15 +289,12 @@ with tab2:
                 
                 fig3d = go.Figure()
                 p3d = st.session_state.mol_coords
-                
-                # 🚀 修復圖例雜訊：加上 showlegend=False
                 for b in st.session_state.mol_bonds:
                     fig3d.add_trace(go.Scatter3d(x=[p3d[b[0]][0], p3d[b[1]][0]], y=[p3d[b[0]][1], p3d[b[1]][1]], z=[p3d[b[0]][2], p3d[b[1]][2]], mode='lines', line=dict(color='gray', width=3), hoverinfo='none', showlegend=False))
                 
                 init_h = history[0]
                 init_labels = [f"🔥 核心源<br>溫度: {init_h[st.session_state.mol_atoms.index(i)]:.1f}°C" if i == st.session_state.core_node else (f"❄️ 外圍點<br>溫度: {init_h[st.session_state.mol_atoms.index(i)]:.1f}°C" if i == st.session_state.edge_node else f"原子 {i}<br>溫度: {init_h[st.session_state.mol_atoms.index(i)]:.1f}°C") for i in st.session_state.mol_atoms]
                 
-                # 🚀 修復圖例雜訊：加上 showlegend=False
                 fig3d.add_trace(go.Scatter3d(
                     x=[p3d[i][0] for i in st.session_state.mol_atoms], y=[p3d[i][1] for i in st.session_state.mol_atoms], z=[p3d[i][2] for i in st.session_state.mol_atoms], 
                     mode='markers', text=init_labels, hoverinfo='text', showlegend=False,
@@ -308,18 +307,19 @@ with tab2:
                     anim_frames.append(go.Frame(data=[go.Scatter3d(marker=dict(color=h, cmin=env_temp-5, cmax=init_temp+5), text=step_labels)], name=f"f{step}", traces=[len(st.session_state.mol_bonds)]))
                 fig3d.frames = anim_frames
 
-                # 🚀 像素級鎖定高度：直接指派 height=780，不讓 Plotly 瞎猜高度
-                fig3d.update_layout(height=780, autosize=False, title="🔥 真實 3D 空間熱擴散", template="plotly_dark", margin=dict(l=10, r=10, b=10, t=40), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False), updatemenus=[dict(type="buttons", active=-1, showactive=False, y=-0.05, x=0.5, xanchor="center", direction="left", buttons=[dict(label="▶️ 播放聯動", method="animate", args=[None, dict(frame=dict(duration=anim_speed, redraw=True), fromcurrent=True, mode="immediate", transition=dict(duration=0))]), dict(label="⏸️ 暫停", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate", transition=dict(duration=0))])])])
+                # 3D 圖表全域設定
+                fig3d.update_layout(autosize=True, title="🔥 真實 3D 空間熱擴散", template="plotly_dark", margin=dict(l=10, r=10, b=10, t=40), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False), updatemenus=[dict(type="buttons", active=-1, showactive=False, y=-0.05, x=0.5, xanchor="center", direction="left", buttons=[dict(label="▶️ 播放聯動", method="animate", args=[None, dict(frame=dict(duration=anim_speed, redraw=True), fromcurrent=True, mode="immediate", transition=dict(duration=0))]), dict(label="⏸️ 暫停", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate", transition=dict(duration=0))])])])
                 
                 fig2d = go.Figure()
                 fig2d.add_trace(go.Scatter(x=[times[0]], y=[c_hist[0]], mode='lines', name="中心點火源", line=dict(color='red', width=3)))
                 fig2d.add_trace(go.Scatter(x=[times[0]], y=[e_hist[0]], mode='lines', name="外圍測溫點", line=dict(color='blue', width=3)))
                 
-                # 🚀 像素級鎖定高度：直接指派 height=380，並保留 b=50 安全留白，確保橫軸完美顯示
-                fig2d.update_layout(height=380, autosize=False, title="📈 絕對精確溫度動態變化 (°C)", template="plotly_dark", margin=dict(l=60, r=20, b=50, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[env_temp-10, init_temp+20], title="溫度 (°C)"))
+                # 🚀 終極修復：將底部邊界 (b) 拉大到 80，確保 X 軸標籤絕對不被切除！
+                fig2d.update_layout(autosize=True, title="📈 絕對精確溫度動態變化 (°C)", template="plotly_dark", margin=dict(l=60, r=20, b=80, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[env_temp-10, init_temp+20], title="溫度 (°C)"))
                 
-                html_3d = fig3d.to_html(include_plotlyjs='cdn', full_html=False, div_id='plot-3d')
-                html_2d = fig2d.to_html(include_plotlyjs=False, full_html=False, div_id='plot-2d')
+                # 🚀 確保 to_html 時將 div 的寬高預設為 100%，由外部 CSS Grid 接管
+                html_3d = fig3d.to_html(include_plotlyjs='cdn', full_html=False, default_width='100%', default_height='100%', div_id='plot-3d')
+                html_2d = fig2d.to_html(include_plotlyjs=False, full_html=False, default_width='100%', default_height='100%', div_id='plot-2d')
                 
                 history_json = json.dumps([h.tolist() for h in history])
                 time_json = json.dumps(times.tolist())
@@ -363,6 +363,10 @@ with tab2:
                             background: #1a1a1a;
                             padding: 15px;
                         }
+                        .js-plotly-plot, .plot-container {
+                            width: 100% !important;
+                            height: 100% !important;
+                        }
                     </style>
                 </head>
                 <body>
@@ -401,6 +405,11 @@ with tab2:
                             var gd2d = document.getElementById('plot-2d');
                             if (gd3d && typeof gd3d.on === 'function' && gd2d && typeof Plotly !== 'undefined') {
                                 clearInterval(checkExist);
+                                
+                                // 🚀 啟動 Plotly 尺寸自適應引擎，強制對齊 CSS 網格
+                                Plotly.Plots.resize(gd3d);
+                                Plotly.Plots.resize(gd2d);
+
                                 gd3d.on('plotly_animatingframe', function(eventData) {
                                     var step = parseInt(eventData.name.replace('f', ''));
                                     var temps = h_data[step];
@@ -414,6 +423,12 @@ with tab2:
                                 });
                             }
                         }, 200);
+
+                        window.onload = function() {
+                            setTimeout(function() {
+                                window.dispatchEvent(new Event('resize'));
+                            }, 500);
+                        };
                     </script>
                 </body>
                 </html>
