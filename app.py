@@ -16,10 +16,10 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
-st.markdown("搭載 **自適應 Flexbox 網格防護** 與 **真實維度安全攔截機制**。根絕畫面重疊，確保物理模擬嚴謹且排版絕對穩定！")
+st.markdown("搭載 **動畫懸浮標籤同步引擎**、**自適應 Flexbox 網格防護** 與 **維度安全攔截機制**。根絕任何狀態脫鉤！")
 
 # ==========================================
-# 核心一：維基百科學術名詞對接與修正引擎
+# 核心一：維基百科對接與修正引擎
 # ==========================================
 LOCAL_CHEM_DICT = {
     "阿斯匹靈": "Aspirin", "普拿疼": "Acetaminophen", "雙氧水": "Hydrogen peroxide",
@@ -52,7 +52,7 @@ def fix_chemical_formula(formula):
     return formula
 
 # ==========================================
-# 核心二：數據抓取與智慧正規化引擎 (解決 None 與單位混亂)
+# 核心二：數據抓取與智慧正規化引擎
 # ==========================================
 def simplify_physical_state(text):
     if not text or text == "無相關文獻數據": return text
@@ -110,7 +110,7 @@ def fetch_sds_and_properties(cid):
                                         props["危險信號詞"] = "危險 (Danger)" if "Danger" in raw_s else ("警告 (Warning)" if "Warning" in raw_s else raw_s)
                                     elif info.get("Name") == "GHS Hazard Statements":
                                         raw_h = [h["String"] for h in info["Value"]["StringWithMarkup"]]
-                                        # 智慧消音機制：消除水分子被誤判為警告的問題
+                                        # 消滅水分子無效警告
                                         if any("not classified" in h.lower() for h in raw_h):
                                             props["危險信號詞"] = "無標示 / 安全"
                                             props["危害警告"] = []
@@ -120,8 +120,15 @@ def fetch_sds_and_properties(cid):
     except: pass
     return props
 
+def get_mol_sdf(cid):
+    try:
+        res = requests.get(f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/record/SDF/?record_type=3d", timeout=5)
+        if res.status_code == 200: return res.text, "3D 立體"
+    except: pass
+    return None, "2D 平面"
+
 # ==========================================
-# 核心三：雙軌檢索邏輯 (純淨判定 3D 實體座標)
+# 核心三：雙軌檢索邏輯
 # ==========================================
 def run_search(query_name):
     english_name = query_name
@@ -140,7 +147,6 @@ def run_search(query_name):
     c_std = std_compounds[0]
     cid = c_std.cid
 
-    # 專門抓取 3D 結構
     c_3d_list = pcp.get_compounds(cid, record_type='3d')
     c_3d = c_3d_list[0] if c_3d_list else None
     
@@ -150,7 +156,6 @@ def run_search(query_name):
             if hasattr(atom, 'x') and atom.x is not None:
                 real_coords[atom.aid] = [atom.x, atom.y, atom.z]
     
-    # 🚀 真正回歸初心：只要有抓到空間座標 (大於 0 個)，就是 3D！否則是 2D (如明礬無機鹽)
     dim_type = "3D 立體" if len(real_coords) > 0 else "2D 平面"
     
     mw = c_std.molecular_weight
@@ -201,7 +206,7 @@ if 'initialized' not in st.session_state:
 # --- 側邊欄參數配置面板 ---
 with st.sidebar:
     st.header("⚙️ 控制面板")
-    user_input = st.text_input("輸入化學名稱 (中文/英文俗名/學名)", "水").strip()
+    user_input = st.text_input("輸入化學名稱 (中文/英文)", "水").strip()
     style = st.selectbox("3D 渲染風格", ["stick", "sphere", "line", "cross"])
     search_button = st.button("🔍 檢索數據", type="primary")
     st.markdown("---")
@@ -209,19 +214,16 @@ with st.sidebar:
     init_temp = st.slider("中心點火溫度 (°C)", 50.0, 500.0, 500.0, step=10.0)
     k_val = st.slider("熱傳導係數 (k)", 0.01, 0.50, 0.15, step=0.01)
     sim_duration = st.slider("模擬總時長 (秒)", 3.0, 30.0, 10.0, step=1.0)
-    anim_speed = st.slider("動畫每幀播放延遲 (ms)", 10, 200, 40, step=10)
+    anim_speed = st.slider("動畫每幀延遲 (ms)", 10, 200, 40, step=10)
 
 if search_button and user_input:
     with st.spinner("🧠 雙軌大數據同步擷取中..."):
         success, msg = run_search(user_input)
         if not success: st.error(msg)
 
-# --- 前端雙分頁系統 ---
+# --- 雙分頁渲染系統 ---
 tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 網格分離式動畫儀表板"])
 
-# ==========================================
-# 分頁 1：化學百科 (還原乾淨雙欄排版)
-# ==========================================
 with tab1:
     sd = st.session_state.search_data
     st.success(f"✅ 當前載入物質：「**{sd['english_name']}**」 | 系統已成功解析全數 **{len(st.session_state.mol_atoms)}** 顆真實原子。")
@@ -256,46 +258,21 @@ with tab1:
     with c2:
         st.subheader("⚠️ SDS 物質安全與危害標示 (GHS)")
         sds = sd['sds_data']
-        if sds['危險信號詞'] != "無標示 / 安全":
-            st.error(f"🚨 **警示語: {sds['危險信號詞']}**")
-        else:
-            st.success(f"✅ **警示語: 無特殊危險標示**")
+        if sds['危險信號詞'] != "無標示 / 安全": st.error(f"🚨 **警示語: {sds['危險信號詞']}**")
+        else: st.success(f"✅ **警示語: 無特殊危險標示**")
             
         if sds['危害警告']:
             for h in sds['危害警告']: st.caption(f"▪️ {h}")
         st.markdown("---")
         st.subheader("🌡️ 實驗室文獻實測數據")
-        st.markdown(f"""
-        | 屬性類別 | 文獻實測數據 (包含單位) |
-        | :--- | :--- |
-        | 🧊 **密度 (Density)** | {sds['密度']} |
-        | ♨️ **沸點 (Boiling Point)** | {sds['沸點']} |
-        | ❄️ **熔點 (Melting Point)** | {sds['熔點']} |
-        | 🔥 **閃點 (Flash Point)** | {sds['閃點']} |
-        | 💧 **溶解度 (Solubility)** | {sds['溶解度']} |
-        | ☁️ **蒸氣壓 (Vapor Pressure)** | {sds['蒸氣壓']} |
-        | 👁️ **外觀與性狀** | {sds['外觀與性狀']} |
-        """)
+        st.markdown(f"| 屬性類別 | 文獻實測數據 (包含單位) |\n| :--- | :--- |\n| 🧊 **密度 (Density)** | {sds['密度']} |\n| ♨️ **沸點 (Boiling Point)** | {sds['沸點']} |\n| ❄️ **熔點 (Melting Point)** | {sds['熔點']} |\n| 🔥 **閃點 (Flash Point)** | {sds['閃點']} |\n| 💧 **溶解度 (Solubility)** | {sds['溶解度']} |\n| ☁️ **蒸氣壓 (Vapor Pressure)** | {sds['蒸氣壓']} |\n| 👁️ **外觀與性狀** | {sds['外觀與性狀']} |")
 
-# ==========================================
-# 分頁 2：網格聯動戰情室 (防破版 + 2D 絕對攔截)
-# ==========================================
 with tab2:
-    # 🚀 阻斷防護網：無實體立體座標的 2D 物質 (如明礬) 直接攔截
     if sd['dim_type'] == "2D 平面":
         st.warning("⚠️ 系統安全攔截：偵測到當前物質僅具備 2D 平面結構數據，已自動阻斷 3D 熱傳導模擬。")
-        st.info("""
-        💡 **科學嚴謹性防護說明：**
-        由於本系統採用 **拉普拉斯矩陣之偏微分方程 (Matrix Exponential)** 進行熱傳導推演，運算高度依賴分子在真實世界中的物理空間座標 ($x, y, z$)。
-        
-        當前檢索的物質（如明礬、無機鹽類或僅有平面紀錄之大分子）缺乏真實 3D 空間數據。若強行計算會導致物理意義錯誤，並引發 WebGL 畫布崩潰。
-        
-        **👉 解決方案：**
-        請在左側重新檢索具備立體座標的共價分子（例如：**水**、**阿斯匹靈**、**咖啡酸**、**苯**），即可解鎖流暢的 3D 動態模擬！
-        """)
+        st.info("請在左側重新檢索具備立體座標的分子（例如：**水**、**阿斯匹靈**、**咖啡酸**、**苯**），即可解鎖流暢的 3D 動態模擬！")
     else:
         st.subheader(f"🔥 {st.session_state.mol_name} - 3D 矩陣指數動態傳導戰情室")
-        
         start_anim = st.button("⚙️ 生成劇院級分離式動態底片", type="primary", use_container_width=True)
         
         if start_anim:
@@ -306,12 +283,10 @@ with tab2:
                 T0 = np.array([env_temp if i != st.session_state.core_node else init_temp for i in st.session_state.mol_atoms])
                 times = np.linspace(0, sim_duration, 100)
                 
-                # 計算時間擴散矩陣
                 history = [expm(-k_val * t * 1.0 * L).dot(T0) for t in times]
                 c_hist = [h[st.session_state.mol_atoms.index(st.session_state.core_node)] for h in history]
                 e_hist = [h[st.session_state.mol_atoms.index(st.session_state.edge_node)] for h in history]
                 
-                # 🚀 建立乾淨的 3D 圖表 (移除常駐文字，改為 hover 顯示)
                 fig3d = go.Figure()
                 p3d = st.session_state.mol_coords
                 for b in st.session_state.mol_bonds:
@@ -326,10 +301,24 @@ with tab2:
                     marker=dict(size=22, color=init_h, colorscale='Turbo', cmin=env_temp-5, cmax=init_temp+5, colorbar=dict(title="溫度 (°C)", thickness=10, x=-0.05))
                 ))
                 
-                fig3d.frames = [go.Frame(data=[go.Scatter3d(marker=dict(color=h))], name=f"f{i}", traces=[len(st.session_state.mol_bonds)]) for i, h in enumerate(history)]
+                # 🚀 終極修正：動畫播放時，不僅更新顏色，還要同步更新懸浮文字！
+                anim_frames = []
+                for step, h in enumerate(history):
+                    # 替每一幀重新產生即時溫度標籤
+                    step_labels = [f"🔥 核心源<br>溫度: {h[st.session_state.mol_atoms.index(atom_id)]:.1f}°C" if atom_id == st.session_state.core_node else (f"❄️ 外圍點<br>溫度: {h[st.session_state.mol_atoms.index(atom_id)]:.1f}°C" if atom_id == st.session_state.edge_node else f"原子 {atom_id}<br>溫度: {h[st.session_state.mol_atoms.index(atom_id)]:.1f}°C") for atom_id in st.session_state.mol_atoms]
+                    
+                    anim_frames.append(go.Frame(
+                        data=[go.Scatter3d(
+                            marker=dict(color=h, cmin=env_temp-5, cmax=init_temp+5), 
+                            text=step_labels # 關鍵同步指令
+                        )], 
+                        name=f"f{step}", 
+                        traces=[len(st.session_state.mol_bonds)]
+                    ))
+                fig3d.frames = anim_frames
+
                 fig3d.update_layout(autosize=True, title="🔥 真實 3D 空間熱擴散", template="plotly_dark", margin=dict(l=10, r=10, b=10, t=40), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False), updatemenus=[dict(type="buttons", active=-1, showactive=False, y=-0.05, x=0.5, xanchor="center", direction="left", buttons=[dict(label="▶️ 播放聯動", method="animate", args=[None, dict(frame=dict(duration=anim_speed, redraw=True), fromcurrent=True, mode="immediate", transition=dict(duration=0))]), dict(label="⏸️ 暫停", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate", transition=dict(duration=0))])])])
                 
-                # 🚀 建立 2D 曲線圖 (強制拓寬左下邊距 l=60, b=60，保證座標軸絕對不被裁切)
                 fig2d = go.Figure()
                 fig2d.add_trace(go.Scatter(x=[times[0]], y=[c_hist[0]], mode='lines', name="中心點火源", line=dict(color='red', width=3)))
                 fig2d.add_trace(go.Scatter(x=[times[0]], y=[e_hist[0]], mode='lines', name="外圍測溫點", line=dict(color='blue', width=3)))
@@ -346,7 +335,6 @@ with tab2:
                 
                 table_rows = "".join([f"<tr style='border-bottom:1px solid #333;'><td style='padding:6px;'>Atom {id}</td><td style='padding:6px;'>{'🔥 核心源' if id == st.session_state.core_node else '❄️ 外部點' if id == st.session_state.edge_node else '傳導中圈'}</td><td id='temp-{i}' style='color:#00ffcc; font-weight:bold; padding:6px;'>{init_h[i]:.2f} °C</td></tr>" for i, id in enumerate(st.session_state.mol_atoms)])
 
-                # 🚀 終極護城河：使用 Flexbox 並加上 min-height: 0 避免圖表撐破容器溢出！
                 html_template = """
                 <!DOCTYPE html>
                 <html>
@@ -358,20 +346,15 @@ with tab2:
                         #right-pane { flex: 4; display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; overflow: hidden; }
                         #top-right-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; border-bottom: 2px solid #333; position: relative; overflow: hidden; }
                         #bottom-right-pane { flex: 1; overflow-y: auto; background: #1a1a1a; padding: 15px; position: relative; }
-                        /* 強制內部畫布完全繼承格子大小，絕對不破版 */
                         .js-plotly-plot, .plot-container { width: 100% !important; height: 100% !important; flex: 1; min-height: 0; }
                     </style>
                 </head>
                 <body>
                     <button style="position:absolute; top:10px; right:20px; z-index:9999; background:rgba(255,255,255,0.1); color:#fff; border:1px solid rgba(255,255,255,0.4); padding:6px 12px; border-radius:4px; cursor:pointer;" onclick="toggleFS()">⤢ 全螢幕</button>
                     <div id="fs-container">
-                        <div id="left-pane">
-                            __HTML_3D__
-                        </div>
+                        <div id="left-pane"> __HTML_3D__ </div>
                         <div id="right-pane">
-                            <div id="top-right-pane">
-                                __HTML_2D__
-                            </div>
+                            <div id="top-right-pane"> __HTML_2D__ </div>
                             <div id="bottom-right-pane">
                                 <table style="width:100%; border-collapse:collapse; text-align:center; color:white; font-family:sans-serif;">
                                     <thead>
@@ -418,7 +401,6 @@ with tab2:
                             }
                         }, 200);
 
-                        // 🚀 關鍵：網頁載入後，強制發送 resize 訊號，讓圖表完美填滿 Flexbox 網格！
                         window.onload = function() {
                             setTimeout(function() {
                                 window.dispatchEvent(new Event('resize'));
@@ -439,7 +421,6 @@ with tab2:
                     .replace("__EDGE_JSON__", edge_json)\
                     .replace("__ATOMS_JSON__", atoms_json)
                     
-                # 設定足夠的 iframe 高度
-                components.html(custom_html, height=850)
+                components.html(custom_html, height=800)
         else:
             st.info("💡 請點擊上方按鈕開始生成劇院級分離式動態底片並解鎖戰情室。")
