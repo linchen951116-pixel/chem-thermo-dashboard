@@ -17,7 +17,7 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
-st.markdown("搭載 **原生 JS 毫秒級聯動引擎** 與 **圖論強制分離防護**。3D 模型、2D 折線圖與即時溫度表，達到零延遲完美同步！")
+st.markdown("搭載 **影格座標軸強制鎖定技術** 與 **原生 JS 毫秒級聯動引擎**。3D 模型、2D 雙折線圖與即時溫度表，達到零延遲完美同步！")
 
 # ==========================================
 # 核心一：維基百科學術名詞對接引擎
@@ -222,12 +222,11 @@ if search_button and user_input:
                     degree[a] = degree.get(a, 0) + 1
                     degree[b] = degree.get(b, 0) + 1
                 
-                # 🚀 修復 Bug 1：強制分離機制，確保點火源與外圍點不會重疊
                 if degree:
                     sorted_nodes = sorted(degree.keys(), key=lambda x: degree[x])
-                    c_node = sorted_nodes[-1] # 最多鍵的當 core
-                    e_node = sorted_nodes[0]  # 最少鍵的當 edge
-                    # 如果只有兩顆原子，它們鍵數相同，必須強制分離
+                    c_node = sorted_nodes[-1] 
+                    e_node = sorted_nodes[0]  
+                    # 🚀 強制分離邏輯：如果兩顆原子鍵數相同，強迫將外圍點指派給不同原子
                     if c_node == e_node and len(atoms) > 1:
                         e_node = [n for n in atoms if n != c_node][0]
                 else:
@@ -258,6 +257,7 @@ if search_button and user_input:
         except Exception as e:
             st.error("⚠️ 檢索過程遭遇異常，請檢查拼寫後再試！")
 
+# --- 雙分頁介面 ---
 tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 原生全螢幕動態聯動台"])
 
 # ==========================================
@@ -274,9 +274,8 @@ with tab1:
             if sd["dim_type"] == "3D 立體" and sd["sdf_data"]:
                 viewer = py3Dmol.view(width=450, height=350)
                 viewer.addModel(sd["sdf_data"], "sdf")
-                # 🚀 修復 Bug 2：底層保底球體渲染，防止隱形原子
                 if style == "sphere": viewer.setStyle({'sphere': {}})
-                else: viewer.setStyle({style: {}, 'sphere': {'radius': 0.3}})
+                else: viewer.setStyle({style: {}, 'sphere': {'radius': 0.3}}) # 保底渲染
                 viewer.setBackgroundColor('#f0f2f6')
                 viewer.zoomTo()
                 safe_html = viewer._make_html().replace("http://", "https://")
@@ -328,7 +327,7 @@ with tab1:
         st.info("💡 請在左側輸入化學式或物質名稱，並按下「🔍 執行數據檢索」來啟動百科。")
 
 # ==========================================
-# 分頁 2：原生全螢幕防當機動態熱傳導台
+# 分頁 2：原生全螢幕防當機動態熱傳導台 (雙線修正版)
 # ==========================================
 with tab2:
     st.subheader(f"🔥 {st.session_state.mol_name} - 零延遲熱傳導戰情室")
@@ -379,7 +378,7 @@ with tab2:
     # 核心黑科技：矩陣指數計算 + 原生 JS 攔截器同步表格
     # ==========================================
     if start_anim and N > 0:
-        with st.spinner(f"⚡ 啟動高等微積分運算... 正在打包 {sim_duration} 秒的絕對精確底片！"):
+        with st.spinner(f"⚡ 啟動高等微積分運算... 正在打包 {sim_duration} 秒的絕對精確解底片！"):
             m, c_heat = 1.0, 1.0
             T_initial = np.array([st.session_state.particle_temps[i] for i in atoms])
             time_steps = np.linspace(0, sim_duration, num=100)
@@ -417,11 +416,13 @@ with tab2:
             for step, t in enumerate(time_steps):
                 t_data = history_frames[step]
                 step_labels = [f"🔥 核心源<br>{t_data[node_to_idx[i]]:.1f}°C" if i == core else (f"❄️ 邊緣點<br>{t_data[node_to_idx[i]]:.1f}°C" if i == edge else f"原子 {i}<br>{t_data[node_to_idx[i]]:.1f}°C") for i in atoms]
+                
+                # 🚀 [關鍵修復] 在 Frame 的 data 內強制手動為 go.Scatter 補上 xaxis='x2', yaxis='y2'，解決雙線消失 Bug！
                 anim_frames.append(go.Frame(
                     data=[
                         go.Scatter3d(marker=dict(color=t_data), text=step_labels), 
-                        go.Scatter(x=time_steps[:step+1], y=core_hist[:step+1]),
-                        go.Scatter(x=time_steps[:step+1], y=edge_hist[:step+1])
+                        go.Scatter(x=time_steps[:step+1], y=core_hist[:step+1], xaxis='x2', yaxis='y2'),
+                        go.Scatter(x=time_steps[:step+1], y=edge_hist[:step+1], xaxis='x2', yaxis='y2')
                     ],
                     traces=[1, 2, 3], name=f"f{step}"
                 ))
@@ -443,7 +444,6 @@ with tab2:
 
             raw_html = fig.to_html(include_plotlyjs="cdn", full_html=False)
             
-            # 準備提供給 JavaScript 攔截器更新表格使用的資料
             history_json = json.dumps([arr.tolist() for arr in history_frames])
             atoms_json = json.dumps(atoms)
             
@@ -500,11 +500,9 @@ with tab2:
                         else {{ if(document.exitFullscreen) document.exitFullscreen(); }}
                     }}
 
-                    // 取得 Python 準備好的陣列資料
                     var history_data = {history_json};
                     var atoms_list = {atoms_json};
 
-                    // 更新 HTML 表格的專屬函數
                     function updateTable(step) {{
                         var temps = history_data[step];
                         if(temps) {{
@@ -515,7 +513,6 @@ with tab2:
                         }}
                     }}
 
-                    // 攔截 Plotly 的每一次影格更新事件
                     var checkExist = setInterval(function() {{
                         var gd = document.getElementsByClassName('plotly-graph-div')[0];
                         if (gd && typeof gd.on === 'function') {{
@@ -523,12 +520,11 @@ with tab2:
                             gd.on('plotly_animatingframe', function(eventData) {{
                                 var frameName = eventData.name;
                                 var step = parseInt(frameName.replace('f', ''));
-                                updateTable(step); // 瞬間同步表格數據
+                                updateTable(step); 
                             }});
                         }}
                     }}, 200);
                     
-                    // 🚀 制動引擎：強迫網頁載入時定格在第 0 幀
                     window.onload = function() {{
                         var gd = document.getElementsByClassName('plotly-graph-div')[0];
                         if(gd) {{ Plotly.animate(gd, {{ frames: [{{name: 'f0'}}] }}); }}
@@ -539,7 +535,7 @@ with tab2:
             """
             
             components.html(custom_html, height=850)
-            st.success("✅ 聯動底片封裝成功！系統已進入『靜止待命狀態』。請點擊圖表右上方的【⤢ 劇院級全螢幕】，準備就緒後再按下播放。")
+            st.success("✅ 聯動底片封裝成功！兩條溫度曲線座標已強制定向，全螢幕播放絕對正常。")
 
     else:
         # 初始狀態預覽
