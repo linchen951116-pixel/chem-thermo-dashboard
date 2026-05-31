@@ -146,6 +146,17 @@ with st.sidebar:
     anim_speed = st.slider("動畫播放速度 (每幀毫秒)", min_value=10, max_value=200, value=40, step=10)
 
 # ==========================================
+# 🚀 狀態機與記憶體安全初始化
+# ==========================================
+if 'mol_atoms' not in st.session_state:
+    st.session_state.mol_atoms = list(range(3))
+    st.session_state.mol_bonds = [(0,1), (1,2)]
+    st.session_state.mol_coords = {}  # 🚀 [防護網] 強制初始化空座標記憶體，避免 AttributeError
+    st.session_state.core_node = 1
+    st.session_state.edge_node = 0
+    st.session_state.mol_name = "載入中"
+
+# ==========================================
 # 核心檢索邏輯 (真實 3D 空間座標升級)
 # ==========================================
 def run_search(query_name):
@@ -160,7 +171,6 @@ def run_search(query_name):
                 if contains_chinese(translated): return False, f"⚠️ 無法辨識「{query_name}」"
                 else: english_name = translated
 
-    # 🚀 核心升級：強制請求 3D 結構，將隱藏的氫原子全部抓出來！
     compounds = pcp.get_compounds(english_name, 'name', record_type='3d')
     if not compounds:
         compounds = pcp.get_compounds(english_name, 'name') # 降級抓取 2D
@@ -171,7 +181,6 @@ def run_search(query_name):
     atoms = [atom.aid for atom in c.atoms]
     bonds = [(bond.aid1, bond.aid2) for bond in c.bonds]
     
-    # 🚀 擷取真實物理空間座標 (x, y, z)
     real_coords = {}
     for atom in c.atoms:
         if hasattr(atom, 'x') and atom.x is not None:
@@ -203,7 +212,7 @@ def run_search(query_name):
     
     st.session_state.mol_atoms = atoms
     st.session_state.mol_bonds = bonds
-    st.session_state.mol_coords = real_coords # 存下真實座標
+    st.session_state.mol_coords = real_coords 
     st.session_state.core_node = c_node
     st.session_state.edge_node = e_node
     st.session_state.mol_name = english_name.capitalize()
@@ -234,41 +243,42 @@ tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 網格分離
 # 分頁 1：化學百科與 SDS 危害報告 
 # ==========================================
 with tab1:
-    sd = st.session_state.search_data
-    st.success(f"✅ 當前載入物質：「**{sd['english_name']}**」 | 系統已成功解析全數 **{len(st.session_state.mol_atoms)}** 顆真實原子。")
-    col_left, col_right = st.columns([1, 1.3])
-    with col_left:
-        st.subheader("⚛️ 空間立體結構")
-        if sd["dim_type"] == "3D 立體" and sd["sdf_data"]:
-            viewer = py3Dmol.view(width=450, height=350)
-            viewer.addModel(sd["sdf_data"], "sdf")
-            if style == "sphere": viewer.setStyle({'sphere': {}})
-            else: viewer.setStyle({style: {}, 'sphere': {'radius': 0.2}})
-            viewer.setBackgroundColor('#f0f2f6')
-            viewer.zoomTo()
-            components.html(viewer._make_html().replace("http://", "https://"), height=350, width=450)
-        elif len(st.session_state.mol_bonds) == 0 and len(st.session_state.mol_atoms) > 0:
-            st.caption("💡 查無單分子 3D 座標，系統已自動動態生成微型離子晶格模型。")
-            components.html(generate_crystal_lattice_html(sd["unique_elements"], style), height=350, width=450)
-        else:
-            st.warning("⚠️ 查無官方 3D 模型，系統已降級為高解析度 2D 結構圖。")
-            st.image(f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{sd['cid']}/PNG?image_size=large", use_container_width=True)
-        
-        st.markdown("---")
-        st.subheader("🧮 計算結構屬性")
-        st.markdown(f"* **慣用化學式:** `{sd['fixed_formula']}`\n* **分子量:** `{sd['molecular_weight']} g/mol`\n* **TPSA:** `{sd['tpsa']} Å²`\n* **氫鍵 (供/受):** `{sd['h_bond_donor_count']} / {sd['h_bond_acceptor_count']}`\n* **SMILES:** `{sd['isomeric_smiles']}`")
+    if 'search_data' in st.session_state:
+        sd = st.session_state.search_data
+        st.success(f"✅ 當前載入物質：「**{sd['english_name']}**」 | 系統已成功解析全數 **{len(st.session_state.mol_atoms)}** 顆真實原子。")
+        col_left, col_right = st.columns([1, 1.3])
+        with col_left:
+            st.subheader("⚛️ 空間立體結構")
+            if sd["dim_type"] == "3D 立體" and sd["sdf_data"]:
+                viewer = py3Dmol.view(width=450, height=350)
+                viewer.addModel(sd["sdf_data"], "sdf")
+                if style == "sphere": viewer.setStyle({'sphere': {}})
+                else: viewer.setStyle({style: {}, 'sphere': {'radius': 0.2}})
+                viewer.setBackgroundColor('#f0f2f6')
+                viewer.zoomTo()
+                components.html(viewer._make_html().replace("http://", "https://"), height=350, width=450)
+            elif len(st.session_state.mol_bonds) == 0 and len(st.session_state.mol_atoms) > 0:
+                st.caption("💡 查無單分子 3D 座標，系統已自動動態生成微型離子晶格模型。")
+                components.html(generate_crystal_lattice_html(sd["unique_elements"], style), height=350, width=450)
+            else:
+                st.warning("⚠️ 查無官方 3D 模型，系統已降級為高解析度 2D 結構圖。")
+                st.image(f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{sd['cid']}/PNG?image_size=large", use_container_width=True)
+            
+            st.markdown("---")
+            st.subheader("🧮 計算結構屬性")
+            st.markdown(f"* **慣用化學式:** `{sd['fixed_formula']}`\n* **分子量:** `{sd['molecular_weight']} g/mol`\n* **TPSA:** `{sd['tpsa']} Å²`\n* **氫鍵 (供/受):** `{sd['h_bond_donor_count']} / {sd['h_bond_acceptor_count']}`\n* **SMILES:** `{sd['isomeric_smiles']}`")
 
-    with col_right:
-        st.subheader("⚠️ SDS 物質安全與危害標示 (GHS)")
-        sds = sd['sds_data']
-        if "Danger" in sds["危險信號詞"]: st.error(f"**🚨 警示語: {sds['危險信號詞']}**")
-        elif "Warning" in sds["危險信號詞"]: st.warning(f"**⚠️ 警示語: {sds['危險信號詞']}**")
-        else: st.success("**✅ 警示語: 無特殊危險標示**")
-        if sds["危害警告"]:
-            for h in sds["危害警告"]: st.caption(f"▪️ {h}")
-        st.markdown("---")
-        st.subheader("🌡️ 實驗室文獻實測數據")
-        st.markdown(f"| 屬性類別 | 文獻實測數值 (包含單位) |\n| :--- | :--- |\n| 🧊 **密度** | {sds['密度']} |\n| ♨️ **沸點** | {sds['沸點']} |\n| ❄️ **熔點** | {sds['熔點']} |\n| 🔥 **閃點** | {sds['閃點']} |\n| 💧 **溶解度** | {sds['溶解度']} |\n| ☁️ **蒸氣壓** | {sds['蒸氣壓']} |\n| 👁️ **外觀與性狀** | {sds['外觀與性狀']} |")
+        with col_right:
+            st.subheader("⚠️ SDS 物質安全與危害標示 (GHS)")
+            sds = sd['sds_data']
+            if "Danger" in sds["危險信號詞"]: st.error(f"**🚨 警示語: {sds['危險信號詞']}**")
+            elif "Warning" in sds["危險信號詞"]: st.warning(f"**⚠️ 警示語: {sds['危險信號詞']}**")
+            else: st.success("**✅ 警示語: 無特殊危險標示**")
+            if sds["危害警告"]:
+                for h in sds["危害警告"]: st.caption(f"▪️ {h}")
+            st.markdown("---")
+            st.subheader("🌡️ 實驗室文獻實測數據")
+            st.markdown(f"| 屬性類別 | 文獻實測數值 (包含單位) |\n| :--- | :--- |\n| 🧊 **密度** | {sds['密度']} |\n| ♨️ **沸點** | {sds['沸點']} |\n| ❄️ **熔點** | {sds['熔點']} |\n| 🔥 **閃點** | {sds['閃點']} |\n| 💧 **溶解度** | {sds['溶解度']} |\n| ☁️ **蒸氣壓** | {sds['蒸氣壓']} |\n| 👁️ **外觀與性狀** | {sds['外觀與性狀']} |")
 
 # ==========================================
 # 分頁 2：分離式 CSS Grid 聯動儀表板
@@ -291,7 +301,7 @@ with tab2:
             st.session_state.particle_temps[core] = init_temp
             st.rerun()
 
-    # --- 🚀 建立真實的 3D 空間座標 (如果有的話) ---
+    # --- 建立幾何拓樸 ---
     G = nx.Graph()
     G.add_nodes_from(atoms)
     G.add_edges_from(bonds)
@@ -299,8 +309,8 @@ with tab2:
         for idx in range(len(atoms) - 1): G.add_edge(atoms[idx], atoms[idx+1])
         bonds = list(G.edges())
 
-    # 優先使用 PubChem 取回的真實物理座標，若無則降級為彈簧拓樸模型
-    if st.session_state.mol_coords and len(st.session_state.mol_coords) == len(atoms):
+    # 🚀 [防護網] 安全調用真實物理座標
+    if 'mol_coords' in st.session_state and st.session_state.mol_coords and len(st.session_state.mol_coords) == len(atoms):
         pos_3d = st.session_state.mol_coords
     else:
         if len(atoms) > 1: pos_3d = nx.spring_layout(G, dim=3, seed=42)
@@ -334,7 +344,7 @@ with tab2:
                 core_hist.append(T_t[node_to_idx[core]])
                 edge_hist.append(T_t[node_to_idx[edge]])
             
-            # 🚀 第一張圖：完全獨立的 3D 動畫主播放器
+            # 第一張圖：完全獨立的 3D 動畫主播放器
             fig3d = go.Figure()
             fig3d.add_trace(go.Scatter3d(x=edge_x, y=edge_y, z=edge_z, mode='lines', line=dict(color='gray', width=3), hoverinfo='none'))
             
@@ -354,7 +364,7 @@ with tab2:
             fig3d.frames = anim_frames
             
             fig3d.update_layout(
-                title="🔥 真實 3D 空間熱擴散", scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False),
+                title="🔥 3D 空間熱擴散", scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False),
                 template="plotly_dark", margin=dict(l=0, r=0, b=0, t=40), 
                 updatemenus=[dict(
                     type="buttons", active=-1, showactive=False, y=-0.05, x=0.5, xanchor="center", yanchor="top", direction="left",
@@ -364,10 +374,9 @@ with tab2:
                     ]
                 )]
             )
-            # 配置自適應高度
             html_3d = fig3d.to_html(include_plotlyjs="cdn", full_html=False, div_id="plot-3d", default_height="100%", default_width="100%")
 
-            # 🚀 第二張圖：完全獨立的 2D 折線圖 (被 JS 遙控，壓縮高度給表格)
+            # 第二張圖：完全獨立的 2D 折線圖 (被 JS 遙控)
             fig2d = go.Figure()
             fig2d.add_trace(go.Scatter(x=[time_steps[0]], y=[core_hist[0]], mode='lines', name=f'核心點火源', line=dict(color='red', width=3)))
             fig2d.add_trace(go.Scatter(x=[time_steps[0]], y=[edge_hist[0]], mode='lines', name=f'外圍測溫點', line=dict(color='blue', width=3)))
@@ -377,14 +386,13 @@ with tab2:
             )
             html_2d = fig2d.to_html(include_plotlyjs=False, full_html=False, div_id="plot-2d", default_height="100%", default_width="100%")
 
-            # JSON 數據準備給表格與折線圖使用
+            # JSON 數據準備
             history_json = json.dumps([arr.tolist() for arr in history_frames])
             time_json = json.dumps(time_steps.tolist())
             core_json = json.dumps(core_hist)
             edge_json = json.dumps(edge_hist)
             atoms_json = json.dumps(atoms)
             
-            # HTML 表格
             table_html = """
             <table style="width:100%; border-collapse: collapse; text-align: center; color: white; font-family: sans-serif;">
                 <thead>
@@ -400,7 +408,7 @@ with tab2:
                 table_html += f"<tr><td style='padding: 6px; border-bottom: 1px solid #333;'>Atom {atom}</td><td style='padding: 6px; border-bottom: 1px solid #333;'>{role}</td><td id='temp-{idx}' style='padding: 6px; border-bottom: 1px solid #333; font-weight: bold; color: #00ffcc;'>{init_T[node_to_idx[atom]]:.2f} °C</td></tr>"
             table_html += "</tbody></table>"
 
-            # 🚀 終極黑科技：完美黃金比例 CSS Grid 排版 (表單獲得高達 65% 的空間)
+            # 終極黑科技：完美黃金比例 CSS Grid 排版
             custom_html = f"""
             <!DOCTYPE html>
             <html>
@@ -469,7 +477,6 @@ with tab2:
             </body>
             </html>
             """
-            # 總高度加大，讓內部空間更充裕
             components.html(custom_html, height=850)
             st.success("✅ 版面分離成功！現在左右區塊互相獨立，再也不會互相擠壓，且紅藍折線保證完美分離。")
 
