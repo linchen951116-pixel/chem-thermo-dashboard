@@ -16,7 +16,7 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
-st.markdown("搭載 **純淨渲染引擎 (Pure Marker Render)** 與 **Flexbox 鎖死排版**。消除所有文字重疊雜訊，達到極致流暢的 60FPS 動畫體驗！")
+st.markdown("搭載 **Flexbox 柔性邊界鎖定** 與 **自動重繪引擎 (Auto-Resize)**。徹底解決畫布重疊問題，保證初始載入即是完美比例！")
 
 # ==========================================
 # 核心一：維基百科學術名詞對接與修正引擎
@@ -230,7 +230,7 @@ if search_button and user_input:
         success, msg = run_search(user_input)
         if not success: st.error(msg)
 
-tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 防溢出分離式動畫台"])
+tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 智慧對齊分離式動畫台"])
 
 # ==========================================
 # 分頁 1：化學百科與 SDS 危害報告 
@@ -273,7 +273,7 @@ with tab1:
             st.markdown(f"| 屬性類別 | 文獻實測數值 (包含單位) |\n| :--- | :--- |\n| 🧊 **密度** | {sds['密度']} |\n| ♨️ **沸點** | {sds['沸點']} |\n| ❄️ **熔點** | {sds['熔點']} |\n| 🔥 **閃點** | {sds['閃點']} |\n| 💧 **溶解度** | {sds['溶解度']} |\n| ☁️ **蒸氣壓** | {sds['蒸氣壓']} |\n| 👁️ **外觀與性狀** | {sds['外觀與性狀']} |")
 
 # ==========================================
-# 分頁 2：絕對鎖死 Flexbox 聯動儀表板
+# 分頁 2：絕對鎖死 Flexbox + 自動重繪引擎
 # ==========================================
 with tab2:
     st.subheader(f"🔥 {st.session_state.mol_name} - 獨立視窗防溢出監控台")
@@ -318,7 +318,7 @@ with tab2:
     node_to_idx = {node: idx for idx, node in enumerate(atoms)}
 
     if start_anim and N > 0:
-        with st.spinner(f"⚡ 啟動純淨渲染引擎... 正在移除文字雜訊並優化畫布邊界！"):
+        with st.spinner(f"⚡ 啟動純淨渲染引擎... 正在鎖定畫布邊界！"):
             L_matrix = nx.laplacian_matrix(G, nodelist=atoms).toarray()
             T_initial = np.array([st.session_state.particle_temps[i] for i in atoms])
             time_steps = np.linspace(0, sim_duration, num=100)
@@ -332,14 +332,12 @@ with tab2:
                 core_hist.append(T_t[node_to_idx[core]])
                 edge_hist.append(T_t[node_to_idx[edge]])
             
+            # 3D Plot
             fig3d = go.Figure()
             fig3d.add_trace(go.Scatter3d(x=edge_x, y=edge_y, z=edge_z, mode='lines', line=dict(color='gray', width=3), hoverinfo='none'))
-            
             init_T = history_frames[0]
             init_labels = [f"🔥 核心源<br>溫度: {init_T[node_to_idx[i]]:.1f}°C" if i == core else (f"❄️ 外圍點<br>溫度: {init_T[node_to_idx[i]]:.1f}°C" if i == edge else f"原子 {i}<br>溫度: {init_T[node_to_idx[i]]:.1f}°C") for i in atoms]
             
-            # 🚀 核心優化：改為 mode='markers' 拔除擁擠的 3D 文字，改用 hoverinfo='text' (懸浮顯示)
-            # 🚀 同時將 colorbar 變細並靠左 (x=-0.05)，避免擠壓 3D 空間
             fig3d.add_trace(go.Scatter3d(
                 x=node_x, y=node_y, z=node_z, 
                 mode='markers',  
@@ -367,6 +365,7 @@ with tab2:
             )
             html_3d = fig3d.to_html(include_plotlyjs="cdn", full_html=False, div_id="plot-3d", default_height="100%", default_width="100%", config={'responsive': True})
 
+            # 2D Plot
             fig2d = go.Figure()
             fig2d.add_trace(go.Scatter(x=[time_steps[0]], y=[core_hist[0]], mode='lines', name=f'核心點火源', line=dict(color='red', width=3)))
             fig2d.add_trace(go.Scatter(x=[time_steps[0]], y=[edge_hist[0]], mode='lines', name=f'外圍測溫點', line=dict(color='blue', width=3)))
@@ -397,21 +396,27 @@ with tab2:
                 table_html += f"<tr><td style='padding: 6px; border-bottom: 1px solid #333;'>Atom {atom}</td><td style='padding: 6px; border-bottom: 1px solid #333;'>{role}</td><td id='temp-{idx}' style='padding: 6px; border-bottom: 1px solid #333; font-weight: bold; color: #00ffcc;'>{init_T[node_to_idx[atom]]:.2f} °C</td></tr>"
             table_html += "</tbody></table>"
 
+            # 🚀 終極黑科技：拔除 absolute 定位，改用 min-height: 0 的 Flexbox 邊界鎖死，並加入 auto-resize 延遲射擊
             custom_html = f"""
             <!DOCTYPE html>
             <html>
             <head>
                 <style>
-                    body, html {{ margin: 0; padding: 0; background-color: #0e1117; width: 100%; height: 100%; overflow: hidden; }}
-                    #fs-container {{ display: flex; width: 100%; height: 100vh; background: #0e1117; position: relative; flex-direction: row; }}
+                    body, html {{ margin: 0; padding: 0; background-color: #0e1117; width: 100%; height: 100%; overflow: hidden; box-sizing: border-box; }}
+                    *, *:before, *:after {{ box-sizing: inherit; }}
                     
-                    #left-pane {{ flex: 6.5; position: relative; border-right: 2px solid #333; overflow: hidden; height: 100%; }}
-                    #right-pane {{ flex: 3.5; display: flex; flex-direction: column; position: relative; overflow: hidden; height: 100%; }}
+                    #fs-container {{ display: flex; flex-direction: row; width: 100%; height: 100vh; background: #0e1117; position: relative; }}
                     
-                    #plot-2d-container {{ flex: 4.5; position: relative; border-bottom: 2px solid #333; overflow: hidden; }}
-                    #table-container {{ flex: 5.5; overflow-y: auto; padding: 10px 15px; background: #1a1a1a; }}
+                    /* 🚀 min-width: 0 確保 flex 子元素不會被內部的 canvas 撐破邊界 */
+                    #left-pane {{ flex: 0 0 60%; display: flex; flex-direction: column; min-width: 0; min-height: 0; border-right: 2px solid #333; padding-right: 10px; }}
+                    #right-pane {{ flex: 0 0 40%; display: flex; flex-direction: column; min-width: 0; min-height: 0; padding-left: 10px; }}
                     
-                    #plot-3d, #plot-2d {{ position: absolute !important; top: 0; left: 0; right: 0; bottom: 0; width: 100% !important; height: 100% !important; }}
+                    #plot-3d {{ flex: 1; width: 100%; height: 100%; min-height: 0; min-width: 0; }}
+                    
+                    #plot-2d-container {{ flex: 0 0 40%; display: flex; flex-direction: column; min-height: 0; border-bottom: 2px solid #333; }}
+                    #plot-2d {{ flex: 1; width: 100%; height: 100%; min-height: 0; min-width: 0; }}
+                    
+                    #table-container {{ flex: 1; overflow-y: auto; padding: 10px 15px; background: #1a1a1a; min-height: 0; }}
                     
                     .fs-btn {{ position: absolute; top: 10px; right: 20px; z-index: 9999; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.4); padding: 6px 12px; border-radius: 4px; cursor: pointer; transition: 0.2s; }}
                     .fs-btn:hover {{ background: rgba(255,255,255,0.3); }}
@@ -466,12 +471,19 @@ with tab2:
                             }});
                         }}
                     }}, 200);
+                    
+                    // 🚀 終極殺招：延遲重繪射擊！等待 0.5 秒讓 HTML 框架底定後，強迫 Plotly 乖乖縮回格子裡
+                    window.onload = function() {{
+                        setTimeout(function() {{
+                            window.dispatchEvent(new Event('resize'));
+                        }}, 500);
+                    }};
                 </script>
             </body>
             </html>
             """
             components.html(custom_html, height=850)
-            st.success("✅ 渲染優化完成！文字雜訊已全數拔除，不僅畫面無死角，動畫流暢度更是達到了顛峰的 60FPS。")
+            st.success("✅ 畫布重整引擎啟動！圖表在載入時會自動『抖』一下完美對齊格子，再也不會互相蓋住了。")
 
     else:
         st.info("💡 請點擊上方「⚙️ 生成劇院級分離式底片」按鈕來啟動矩陣指數運算。")
