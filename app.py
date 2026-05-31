@@ -16,7 +16,6 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
-st.markdown("搭載 **動畫懸浮標籤同步引擎**、**自適應 Flexbox 網格防護** 與 **維度安全攔截機制**。根絕任何狀態脫鉤！")
 
 # ==========================================
 # 核心一：維基百科對接與修正引擎
@@ -47,7 +46,7 @@ def translate_via_wikipedia(zh_name):
 
 def fix_chemical_formula(formula):
     if not formula: return "無文獻資料"
-    fix_map = {"ClNa": "NaCl", "HNaO": "NaOH", "ClK": "KCl", "HKO": "KOH", "IK": "KI", "KNO2": "KNO₂", "NO2K": "KNO₂", "NO3K": "KNO₃", "C2H4O2": "CH₃COOH", "H2O": "H₂O"}
+    fix_map = {"ClNa": "NaCl", "HNaO": "NaOH", "ClK": "KCl", "HKO": "KOH", "IK": "KI", "KNO2": "KNO2", "NO2K": "KNO2", "NO3K": "KNO3", "C2H4O2": "CH3COOH", "H2O": "H2O"}
     if formula in fix_map: return fix_map[formula]
     return formula
 
@@ -57,10 +56,10 @@ def fix_chemical_formula(formula):
 def simplify_physical_state(text):
     if not text or text == "無相關文獻數據": return text
     t = text.lower()
-    if any(kw in t for kw in ["solid", "crystal", "powder", "pellet", "salt"]): return "🧊 固體"
-    elif any(kw in t for kw in ["liquid", "fluid"]) and "solution" not in t: return "💧 液體"
-    elif any(kw in t for kw in ["gas", "vapor"]): return "☁️ 氣體"
-    elif "solution" in t or "aqueous" in t: return "💧 水溶液"
+    if any(kw in t for kw in ["solid", "crystal", "powder", "pellet", "salt"]): return "固體"
+    elif any(kw in t for kw in ["liquid", "fluid"]) and "solution" not in t: return "液體"
+    elif any(kw in t for kw in ["gas", "vapor"]): return "氣體"
+    elif "solution" in t or "aqueous" in t: return "水溶液"
     return text
 
 def standardize_temperature(raw_str):
@@ -110,7 +109,6 @@ def fetch_sds_and_properties(cid):
                                         props["危險信號詞"] = "危險 (Danger)" if "Danger" in raw_s else ("警告 (Warning)" if "Warning" in raw_s else raw_s)
                                     elif info.get("Name") == "GHS Hazard Statements":
                                         raw_h = [h["String"] for h in info["Value"]["StringWithMarkup"]]
-                                        # 消滅水分子無效警告
                                         if any("not classified" in h.lower() for h in raw_h):
                                             props["危險信號詞"] = "無標示 / 安全"
                                             props["危害警告"] = []
@@ -221,7 +219,7 @@ if search_button and user_input:
         success, msg = run_search(user_input)
         if not success: st.error(msg)
 
-# --- 雙分頁渲染系統 ---
+# --- 前端雙分頁系統 ---
 tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 網格分離式動畫儀表板"])
 
 with tab1:
@@ -272,8 +270,11 @@ with tab2:
         st.warning("⚠️ 系統安全攔截：偵測到當前物質僅具備 2D 平面結構數據，已自動阻斷 3D 熱傳導模擬。")
         st.info("請在左側重新檢索具備立體座標的分子（例如：**水**、**阿斯匹靈**、**咖啡酸**、**苯**），即可解鎖流暢的 3D 動態模擬！")
     else:
-        st.subheader(f"🔥 {st.session_state.mol_name} - 3D 矩陣指數動態傳導戰情室")
-        start_anim = st.button("⚙️ 生成劇院級分離式動態底片", type="primary", use_container_width=True)
+        # 🚀 修正點 2：改為中規中矩的專業標題名稱
+        st.subheader(f"📊 {st.session_state.mol_name} - 3D 熱傳導動態模擬監控台")
+        
+        # 🚀 修正點 3：去除劇院級底片等中二修辭，改為學術規範用字
+        start_anim = st.button("▶️ 開始執行熱傳導模擬動畫", type="primary", use_container_width=True)
         
         if start_anim:
             with st.spinner("⚡ 正在求解偏微分方程絕對精確解..."):
@@ -301,20 +302,10 @@ with tab2:
                     marker=dict(size=22, color=init_h, colorscale='Turbo', cmin=env_temp-5, cmax=init_temp+5, colorbar=dict(title="溫度 (°C)", thickness=10, x=-0.05))
                 ))
                 
-                # 🚀 終極修正：動畫播放時，不僅更新顏色，還要同步更新懸浮文字！
                 anim_frames = []
                 for step, h in enumerate(history):
-                    # 替每一幀重新產生即時溫度標籤
                     step_labels = [f"🔥 核心源<br>溫度: {h[st.session_state.mol_atoms.index(atom_id)]:.1f}°C" if atom_id == st.session_state.core_node else (f"❄️ 外圍點<br>溫度: {h[st.session_state.mol_atoms.index(atom_id)]:.1f}°C" if atom_id == st.session_state.edge_node else f"原子 {atom_id}<br>溫度: {h[st.session_state.mol_atoms.index(atom_id)]:.1f}°C") for atom_id in st.session_state.mol_atoms]
-                    
-                    anim_frames.append(go.Frame(
-                        data=[go.Scatter3d(
-                            marker=dict(color=h, cmin=env_temp-5, cmax=init_temp+5), 
-                            text=step_labels # 關鍵同步指令
-                        )], 
-                        name=f"f{step}", 
-                        traces=[len(st.session_state.mol_bonds)]
-                    ))
+                    anim_frames.append(go.Frame(data=[go.Scatter3d(marker=dict(color=h, cmin=env_temp-5, cmax=init_temp+5), text=step_labels)], name=f"f{step}", traces=[len(st.session_state.mol_bonds)]))
                 fig3d.frames = anim_frames
 
                 fig3d.update_layout(autosize=True, title="🔥 真實 3D 空間熱擴散", template="plotly_dark", margin=dict(l=10, r=10, b=10, t=40), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False), updatemenus=[dict(type="buttons", active=-1, showactive=False, y=-0.05, x=0.5, xanchor="center", direction="left", buttons=[dict(label="▶️ 播放聯動", method="animate", args=[None, dict(frame=dict(duration=anim_speed, redraw=True), fromcurrent=True, mode="immediate", transition=dict(duration=0))]), dict(label="⏸️ 暫停", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate", transition=dict(duration=0))])])])
@@ -322,7 +313,7 @@ with tab2:
                 fig2d = go.Figure()
                 fig2d.add_trace(go.Scatter(x=[times[0]], y=[c_hist[0]], mode='lines', name="中心點火源", line=dict(color='red', width=3)))
                 fig2d.add_trace(go.Scatter(x=[times[0]], y=[e_hist[0]], mode='lines', name="外圍測溫點", line=dict(color='blue', width=3)))
-                fig2d.update_layout(autosize=True, title="📈 絕對精確溫度動態變化 (°C)", template="plotly_dark", margin=dict(l=60, r=20, b=60, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[env_temp-10, init_temp+20], title="溫度 (°C)"))
+                fig2d.update_layout(autosize=True, title="📈 絕對精確溫度動態變化 (°C)", template="plotly_dark", margin=dict(l=60, r=20, b=60, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[env_temp-10, init_temp+20], title="溫度 (°C)")
                 
                 html_3d = fig3d.to_html(include_plotlyjs='cdn', full_html=False, default_width='100%', default_height='100%', div_id='plot-3d', config={'responsive': True})
                 html_2d = fig2d.to_html(include_plotlyjs=False, full_html=False, default_width='100%', default_height='100%', div_id='plot-2d', config={'responsive': True})
@@ -423,4 +414,5 @@ with tab2:
                     
                 components.html(custom_html, height=800)
         else:
-            st.info("💡 請點擊上方按鈕開始生成劇院級分離式動態底片並解鎖戰情室。")
+            # 🚀 修正點 3 同步：下方的說明文字也一併同步改為標準專業風格
+            st.info("💡 請點擊上方按鈕開始生成熱傳導模擬動畫並展開數據監控台。")
