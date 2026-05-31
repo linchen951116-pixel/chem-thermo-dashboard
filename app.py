@@ -182,7 +182,9 @@ with st.sidebar:
     sim_duration = st.slider("模擬總時長 (秒)", min_value=3.0, max_value=30.0, value=10.0, step=1.0)
     anim_speed = st.slider("動畫播放速度 (每幀毫秒)", min_value=10, max_value=200, value=40, step=10)
 
+# ==========================================
 # 狀態機與記憶體安全初始化
+# ==========================================
 if 'mol_atoms' not in st.session_state:
     st.session_state.mol_atoms = list(range(3))
     st.session_state.mol_bonds = [(0,1), (1,2)]
@@ -265,7 +267,7 @@ if search_button and user_input:
         success, msg = run_search(user_input)
         if not success: st.error(msg)
 
-tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 網格分離式動畫台"])
+tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 網格分離式動畫儀表板"])
 
 # ==========================================
 # 分頁 1：化學百科與 SDS 危害報告 
@@ -320,23 +322,21 @@ with tab1:
             st.markdown(prop_md)
 
 # ==========================================
-# 分頁 2：網格分離式動畫儀表板 (🚀 導入 2D 安全攔截機制)
+# 分頁 2：網格分離式動畫儀表板 (安全防禦版)
 # ==========================================
 with tab2:
-    # 🚀 核心優化：如果偵測到當前物質為 2D 平面結構，立即啟動阻斷保護
     if 'search_data' in st.session_state and st.session_state.search_data.get("dim_type") == "2D 平面":
         st.warning("⚠️ 偵測到當前物質僅具備 2D 平面結構，系統已自動攔截並停用熱傳導模擬。")
         st.info("""
         💡 **維度安全防護說明：**
         由於本系統採用 **偏微分方程之矩陣指數 (Matrix Exponential)** 進行真實空間的三維熱傳導動態模擬，運算高度依賴物質在真實世界中的 $x, y, z$ 物理幾何座標。
         
-        當前檢索的物質（例如離子鹽類晶格、或缺乏 3D 構型數據的特殊分子）在國際資料庫中僅留有 2D 拓樸紀錄。為了避免網格運算產生無效解，並防止瀏覽器 WebGL 畫布因溢出而崩潰（畫面遺失），系統已安全停用此物質的模擬功能。
+        當前檢索的物質在國際資料庫中僅留有 2D 拓樸紀錄。為了避免網格運算產生無效解，並防止瀏覽器 WebGL 畫布因溢出而崩潰，系統已安全停用此物質的模擬功能。
         
         **👉 建議嘗試：**
-        請在左側重新檢索具備完整 3D 結構的共價分子（如：**阿斯匹靈**、**苯**、**普拿疼**、**水**、**乙醇**等），即可重新解鎖高畫質雙聯動模擬。
+        請重新檢索具備完整 3D 結構的共價分子（如：**阿斯匹靈**、**苯**、**普拿疼**、**水**等），即可解鎖高畫質雙聯動模擬。
         """)
     else:
-        # 只有具備 3D 真實結構的物質才會渲染以下運算與介面
         st.subheader(f"🔥 {st.session_state.mol_name} - 獨立視窗防溢出監控台")
 
         atoms = st.session_state.mol_atoms
@@ -518,13 +518,13 @@ with tab2:
 
                         var checkExist = setInterval(function() {{
                             var gd3d = document.getElementById('plot-3d');
-                            if (gd3d && typeof gd3d.on === 'function') {
+                            if (gd3d && typeof gd3d.on === 'function') {{
                                 clearInterval(checkExist);
-                                gd3d.on('plotly_animatingframe', function(eventData) {
+                                gd3d.on('plotly_animatingframe', function(eventData) {{
                                     var step = parseInt(eventData.name.replace('f', ''));
                                     syncDashboard(step);
-                                });
-                            }
+                                }});
+                            }}
                         }}, 200);
                         
                         window.onload = function() {{
@@ -537,6 +537,3 @@ with tab2:
                 </html>
                 """
                 components.html(custom_html, height=850)
-                st.success("✅ 3D 分子底片封裝完畢！已排開安全邊距。")
-        else:
-            st.info("💡 請點擊上方「⚙️ 生成劇院級分離式底片」按鈕來啟動 3D 矩陣解算。")
