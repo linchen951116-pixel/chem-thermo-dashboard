@@ -13,7 +13,7 @@ import json
 import streamlit.components.v1 as components
 
 # 網頁基礎設定
-st.set_page_config(page_title="中文化學物質分析與動態熱力學系統", layout="wide")
+st.set_page_config(page_title="化學物質分析與動態熱力學系統", layout="wide")
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
 
