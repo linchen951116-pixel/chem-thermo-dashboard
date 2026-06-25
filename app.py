@@ -323,8 +323,8 @@ with tab2:
 
         start_anim = st.button("▶️ 開始執行熱傳導模擬動畫", type="primary", use_container_width=True)
         
-        if start_anim:
-            with st.spinner(f"⚡ 正在啟動 {sim_model.split('：')[0]} 引擎，計算分子熱傳導..."):
+       if start_anim:
+            with st.spinner(f"⚡ 正在啟動 {sim_model.split('：')[0]} 引擎，計算分子熱力學狀態..."):
                 times = np.linspace(0, sim_duration, 100)
                 
                 # ==========================================
@@ -336,74 +336,78 @@ with tab2:
                     L = nx.laplacian_matrix(G).toarray()
                     T0 = np.array([env_temp if i != st.session_state.core_node else init_temp for i in st.session_state.mol_atoms])
                     history = [expm(-k_val * t * 1.0 * L).dot(T0) for t in times]
+                    
+                    # 👉 巨觀 UI 參數
+                    val_name = "溫度"
+                    val_unit = "°C"
+                    val_cmin = env_temp - 5
+                    val_cmax = init_temp + 5
                 
                 # ==========================================
                 # 引擎 2：微觀隨機漫步模型 (教授指定升級版)
                 # ==========================================
                 else:
                     num_packets = 10000 # 注入一萬顆微觀能量粒子
-                    # 粒子初始位置全在核心原子
                     particles = np.full(num_packets, st.session_state.core_node)
-                    # 每個粒子的溫度權重 = 總溫差 / 粒子數
-                    temp_scale = (init_temp - env_temp) / num_packets
                     
-                    # 建立化學鍵的鄰接表 (加入自身，模擬熱容與滯留)
                     adj_list = {n: [n] for n in st.session_state.mol_atoms}
                     for u, v in st.session_state.mol_bonds:
                         adj_list[u].append(v)
                         adj_list[v].append(u)
                         
                     history = []
-                    # 利用 k_val 控制粒子隨機漫步的活躍程度 (步數)
                     jumps_per_frame = int(k_val * 40) + 1 
                     
                     for step in range(len(times)):
-                        # 1. 統計當前每顆原子上的粒子數量
                         counts = {n: 0 for n in st.session_state.mol_atoms}
                         for p in particles:
                             counts[p] += 1
                         
-                        # 2. 微觀轉巨觀：將粒子密度轉換回溫度 T_i = T_env + (N_packets * Scale)
-                        T_arr = np.array([env_temp + counts[n] * temp_scale for n in st.session_state.mol_atoms])
-                        history.append(T_arr)
+                        # 🚀 修改點：不再換算成溫度，直接把「能量封包數量」存入歷史紀錄！
+                        E_arr = np.array([float(counts[n]) for n in st.session_state.mol_atoms])
+                        history.append(E_arr)
                         
-                        # 3. 隨機漫步：每顆粒子沿化學鍵隨機移動
                         for _ in range(jumps_per_frame):
                             particles = [np.random.choice(adj_list[p]) for p in particles]
+                            
+                    # 👉 微觀 UI 參數
+                    val_name = "微觀能量"
+                    val_unit = "封包 (E)"
+                    val_cmin = 0
+                    val_cmax = 10000  # 起始全部 10000 顆都在核心
                 # ==========================================
 
-                # 提取圖表與動畫用的核心及邊緣節點歷史數據
                 c_hist = [h[st.session_state.mol_atoms.index(st.session_state.core_node)] for h in history]
                 e_hist = [h[st.session_state.mol_atoms.index(st.session_state.edge_node)] for h in history]
                 
-                # ---------------- 以下所有繪圖與 HTML 程式碼完全不動 ----------------
+                # ---------------- 繪圖區塊動態套用單位 ----------------
                 fig3d = go.Figure()
                 p3d = st.session_state.mol_coords
                 for b in st.session_state.mol_bonds:
                     fig3d.add_trace(go.Scatter3d(x=[p3d[b[0]][0], p3d[b[1]][0]], y=[p3d[b[0]][1], p3d[b[1]][1]], z=[p3d[b[0]][2], p3d[b[1]][2]], mode='lines', line=dict(color='gray', width=3), hoverinfo='none', showlegend=False))
                 
                 init_h = history[0]
-                init_labels = [f"🔥 核心源<br>溫度: {init_h[st.session_state.mol_atoms.index(i)]:.1f}°C" if i == st.session_state.core_node else (f"❄️ 外圍點<br>溫度: {init_h[st.session_state.mol_atoms.index(i)]:.1f}°C" if i == st.session_state.edge_node else f"原子 {i}<br>溫度: {init_h[st.session_state.mol_atoms.index(i)]:.1f}°C") for i in st.session_state.mol_atoms]
+                init_labels = [f"🔥 核心源<br>{val_name}: {init_h[st.session_state.mol_atoms.index(i)]:.1f} {val_unit}" if i == st.session_state.core_node else (f"❄️ 外圍點<br>{val_name}: {init_h[st.session_state.mol_atoms.index(i)]:.1f} {val_unit}" if i == st.session_state.edge_node else f"原子 {i}<br>{val_name}: {init_h[st.session_state.mol_atoms.index(i)]:.1f} {val_unit}") for i in st.session_state.mol_atoms]
                 
                 fig3d.add_trace(go.Scatter3d(
                     x=[p3d[i][0] for i in st.session_state.mol_atoms], y=[p3d[i][1] for i in st.session_state.mol_atoms], z=[p3d[i][2] for i in st.session_state.mol_atoms], 
                     mode='markers', text=init_labels, hoverinfo='text', showlegend=False,
-                    marker=dict(size=22, color=init_h, colorscale='Turbo', cmin=env_temp-5, cmax=init_temp+5, colorbar=dict(title="溫度 (°C)", thickness=10, x=-0.05))
+                    marker=dict(size=22, color=init_h, colorscale='Turbo', cmin=val_cmin, cmax=val_cmax, colorbar=dict(title=f"{val_name} ({val_unit.strip()})", thickness=10, x=-0.05))
                 ))
                 
                 anim_frames = []
                 for step, h in enumerate(history):
-                    step_labels = [f"🔥 核心源<br>溫度: {h[st.session_state.mol_atoms.index(atom_id)]:.1f}°C" if atom_id == st.session_state.core_node else (f"❄️ 外圍點<br>溫度: {h[st.session_state.mol_atoms.index(atom_id)]:.1f}°C" if atom_id == st.session_state.edge_node else f"原子 {atom_id}<br>溫度: {h[st.session_state.mol_atoms.index(atom_id)]:.1f}°C") for atom_id in st.session_state.mol_atoms]
-                    anim_frames.append(go.Frame(data=[go.Scatter3d(marker=dict(color=h, cmin=env_temp-5, cmax=init_temp+5), text=step_labels)], name=f"f{step}", traces=[len(st.session_state.mol_bonds)]))
+                    step_labels = [f"🔥 核心源<br>{val_name}: {h[st.session_state.mol_atoms.index(atom_id)]:.1f} {val_unit}" if atom_id == st.session_state.core_node else (f"❄️ 外圍點<br>{val_name}: {h[st.session_state.mol_atoms.index(atom_id)]:.1f} {val_unit}" if atom_id == st.session_state.edge_node else f"原子 {atom_id}<br>{val_name}: {h[st.session_state.mol_atoms.index(atom_id)]:.1f} {val_unit}") for atom_id in st.session_state.mol_atoms]
+                    anim_frames.append(go.Frame(data=[go.Scatter3d(marker=dict(color=h, cmin=val_cmin, cmax=val_cmax), text=step_labels)], name=f"f{step}", traces=[len(st.session_state.mol_bonds)]))
                 fig3d.frames = anim_frames
 
                 fig3d.update_layout(autosize=True, height=800, title="🔥 真實 3D 空間熱擴散", template="plotly_dark", margin=dict(l=10, r=10, b=10, t=40), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False), updatemenus=[dict(type="buttons", active=-1, showactive=False, y=-0.05, x=0.5, xanchor="center", direction="left", buttons=[dict(label="▶️ 播放聯動", method="animate", args=[None, dict(frame=dict(duration=anim_speed, redraw=True), fromcurrent=True, mode="immediate", transition=dict(duration=0))]), dict(label="⏸️ 暫停", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate", transition=dict(duration=0))])])])
                 
                 fig2d = go.Figure()
                 fig2d.add_trace(go.Scatter(x=[times[0]], y=[c_hist[0]], mode='lines', name="中心點火源", line=dict(color='red', width=3)))
-                fig2d.add_trace(go.Scatter(x=[times[0]], y=[e_hist[0]], mode='lines', name="外圍測溫點", line=dict(color='blue', width=3)))
+                fig2d.add_trace(go.Scatter(x=[times[0]], y=[e_hist[0]], mode='lines', name="外圍測量點", line=dict(color='blue', width=3)))
                 
-                fig2d.update_layout(autosize=True, height=450, title="📈 絕對精確溫度動態變化 (°C)", template="plotly_dark", margin=dict(l=70, r=20, b=60, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[env_temp-10, init_temp+20], title="溫度 (°C)"))
+                fig2d.update_layout(autosize=True, height=450, title=f"📈 絕對精確動態變化 ({val_unit.strip()})", template="plotly_dark", margin=dict(l=70, r=20, b=60, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[val_cmin, val_cmax*1.1], title=f"{val_name} ({val_unit.strip()})"))
                 
                 html_3d = fig3d.to_html(include_plotlyjs='cdn', full_html=False, div_id='plot-3d', config={'responsive': True})
                 html_2d = fig2d.to_html(include_plotlyjs=False, full_html=False, div_id='plot-2d', config={'responsive': True})
@@ -414,7 +418,7 @@ with tab2:
                 edge_json = json.dumps(e_hist)
                 atoms_json = json.dumps(st.session_state.mol_atoms)
                 
-                table_rows = "".join([f"<tr style='border-bottom:1px solid #333;'><td style='padding:6px;'>Atom {id}</td><td style='padding:6px;'>{'🔥 核心源' if id == st.session_state.core_node else '❄️ 外部點' if id == st.session_state.edge_node else '傳導中圈'}</td><td id='temp-{i}' style='color:#00ffcc; font-weight:bold; padding:6px;'>{init_h[i]:.2f} °C</td></tr>" for i, id in enumerate(st.session_state.mol_atoms)])
+                table_rows = "".join([f"<tr style='border-bottom:1px solid #333;'><td style='padding:6px;'>Atom {id}</td><td style='padding:6px;'>{'🔥 核心源' if id == st.session_state.core_node else '❄️ 外部點' if id == st.session_state.edge_node else '傳導中圈'}</td><td id='val-{i}' style='color:#00ffcc; font-weight:bold; padding:6px;'>{init_h[i]:.0f} {val_unit}</td></tr>" for i, id in enumerate(st.session_state.mol_atoms)])
 
                 html_template = """
                 <!DOCTYPE html>
@@ -422,38 +426,11 @@ with tab2:
                 <head>
                     <style>
                         body, html { margin: 0; padding: 0; background-color: #0e1117; width: 100%; height: 100%; overflow: hidden; box-sizing: border-box; }
-                        #fs-container {
-                            display: grid;
-                            grid-template-columns: 60% 40%;
-                            grid-template-rows: 450px 350px;
-                            width: 100%;
-                            height: 800px;
-                            background: #0e1117;
-                            position: relative;
-                        }
-                        #left-pane {
-                            grid-column: 1 / 2;
-                            grid-row: 1 / 3;
-                            border-right: 2px solid #333;
-                            overflow: hidden;
-                        }
-                        #top-right-pane {
-                            grid-column: 2 / 3;
-                            grid-row: 1 / 2;
-                            border-bottom: 2px solid #333;
-                            overflow: hidden; 
-                        }
-                        #bottom-right-pane {
-                            grid-column: 2 / 3;
-                            grid-row: 2 / 3;
-                            overflow-y: auto;
-                            background: #1a1a1a;
-                            padding: 15px;
-                        }
-                        .js-plotly-plot, .plot-container {
-                            width: 100% !important;
-                            height: 100% !important;
-                        }
+                        #fs-container { display: grid; grid-template-columns: 60% 40%; grid-template-rows: 450px 350px; width: 100%; height: 800px; background: #0e1117; position: relative; }
+                        #left-pane { grid-column: 1 / 2; grid-row: 1 / 3; border-right: 2px solid #333; overflow: hidden; }
+                        #top-right-pane { grid-column: 2 / 3; grid-row: 1 / 2; border-bottom: 2px solid #333; overflow: hidden; }
+                        #bottom-right-pane { grid-column: 2 / 3; grid-row: 2 / 3; overflow-y: auto; background: #1a1a1a; padding: 15px; }
+                        .js-plotly-plot, .plot-container { width: 100% !important; height: 100% !important; }
                     </style>
                 </head>
                 <body>
@@ -467,7 +444,7 @@ with tab2:
                                     <tr style="border-bottom:2px solid #555; position:sticky; top:0; background:#222;">
                                         <th style="padding:10px;">粒子編號</th>
                                         <th style="padding:10px;">拓樸定位</th>
-                                        <th style="padding:10px;">即時溫度 (°C)</th>
+                                        <th style="padding:10px;">即時__VAL_NAME__</th>
                                     </tr>
                                 </thead>
                                 <tbody>__TABLE_ROWS__</tbody>
@@ -477,8 +454,7 @@ with tab2:
                     <script>
                         function toggleFS() {
                             let elem = document.documentElement;
-                            if (!document.fullscreenElement) { elem.requestFullscreen(); } 
-                            else { document.exitFullscreen(); }
+                            if (!document.fullscreenElement) { elem.requestFullscreen(); } else { document.exitFullscreen(); }
                         }
 
                         var h_data = __HISTORY_JSON__;
@@ -486,6 +462,7 @@ with tab2:
                         var c_data = __CORE_JSON__;
                         var e_data = __EDGE_JSON__;
                         var a_list = __ATOMS_JSON__;
+                        var v_unit = "__VAL_UNIT__";
 
                         var checkExist = setInterval(function() {
                             var gd3d = document.getElementById('plot-3d');
@@ -495,23 +472,19 @@ with tab2:
                                 
                                 gd3d.on('plotly_animatingframe', function(eventData) {
                                     var step = parseInt(eventData.name.replace('f', ''));
-                                    var temps = h_data[step];
-                                    if (temps) {
+                                    var vals = h_data[step];
+                                    if (vals) {
                                         for (var i = 0; i < a_list.length; i++) {
-                                            var cell = document.getElementById('temp-' + i);
-                                            if (cell) { cell.innerText = temps[i].toFixed(2) + ' °C'; }
+                                            var cell = document.getElementById('val-' + i);
+                                            // 顯示整數封包數量或小數點溫度
+                                            if (cell) { cell.innerText = (v_unit.includes('C') ? vals[i].toFixed(1) : vals[i].toFixed(0)) + ' ' + v_unit; }
                                         }
                                     }
                                     Plotly.restyle(gd2d, {'x': [t_data.slice(0, step + 1), t_data.slice(0, step + 1)], 'y': [c_data.slice(0, step + 1), e_data.slice(0, step + 1)]}, [0, 1]);
                                 });
                             }
                         }, 200);
-
-                        window.onload = function() {
-                            setTimeout(function() {
-                                window.dispatchEvent(new Event('resize'));
-                            }, 500);
-                        };
+                        window.onload = function() { setTimeout(function() { window.dispatchEvent(new Event('resize')); }, 500); };
                     </script>
                 </body>
                 </html>
@@ -525,8 +498,8 @@ with tab2:
                     .replace("__TIME_JSON__", time_json)\
                     .replace("__CORE_JSON__", core_json)\
                     .replace("__EDGE_JSON__", edge_json)\
-                    .replace("__ATOMS_JSON__", atoms_json)
+                    .replace("__ATOMS_JSON__", atoms_json)\
+                    .replace("__VAL_NAME__", val_name)\
+                    .replace("__VAL_UNIT__", val_unit)
                     
                 components.html(custom_html, height=850)
-        else:
-            st.info("💡 請點擊上方按鈕開始執行熱傳導模擬動畫並展開數據監控台。")
