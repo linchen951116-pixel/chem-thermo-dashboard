@@ -35,58 +35,28 @@ LOCAL_CHEM_DICT = {
 # 🚀 完整擴充核心數據庫：將核心共價分子與無機鹽數據硬編碼鎖定
 LOCAL_DATABASE = {
     "Water": {
-        "外觀與性狀": "無色無味透明液體",
-        "密度": "1.00 g/cm³",
-        "熔點": "0.0 °C",
-        "沸點": "100.0 °C",
-        "閃點": "無相關文獻數據 (不可燃)",
-        "溶解度": "與多數極性溶劑完全互溶",
-        "蒸氣壓": "17.5 mmHg (20 °C)"
+        "外觀與性狀": "無色無味透明液體", "密度": "1.00 g/cm³", "熔點": "0.0 °C", "沸點": "100.0 °C",
+        "閃點": "無相關文獻數據 (不可燃)", "溶解度": "與多數極性溶劑完全互溶", "蒸氣壓": "17.5 mmHg (20 °C)"
     },
     "Magnesium iodide": {
-        "外觀與性狀": "白色結晶性粉末，極易潮解",
-        "密度": "4.48 g/cm³",
-        "熔點": "637.0 °C",
-        "沸點": "無相關文獻數據 (加熱時分解)",
-        "閃點": "無相關文獻數據",
-        "溶解度": "極易溶於水 (140 g/100 mL, 20 °C)，溶於乙醇",
-        "蒸氣壓": "無相關文獻數據"
+        "外觀與性狀": "白色結晶性粉末，極易潮解", "密度": "4.48 g/cm³", "熔點": "637.0 °C", "沸點": "無相關文獻數據 (加熱時分解)",
+        "閃點": "無相關文獻數據", "溶解度": "極易溶於水 (140 g/100 mL, 20 °C)，溶於乙醇", "蒸氣壓": "無相關文獻數據"
     },
     "Aspirin": {
-        "外觀與性狀": "白色結晶或結晶性粉末",
-        "密度": "1.40 g/cm³",
-        "熔點": "135.0 °C",
-        "沸點": "140.0 °C (分解)",
-        "閃點": "250.0 °C",
-        "溶解度": "微溶於水，易溶於乙醇、乙醚",
-        "蒸氣壓": "0.000041 mmHg (25 °C)"
+        "外觀與性狀": "白色結晶或結晶性粉末", "密度": "1.40 g/cm³", "熔點": "135.0 °C", "沸點": "140.0 °C (分解)",
+        "閃點": "250.0 °C", "溶解度": "微溶於水，易溶於乙醇、乙醚", "蒸氣壓": "0.000041 mmHg (25 °C)"
     },
     "Acetaminophen": {
-        "外觀與性狀": "白色結晶性粉末",
-        "密度": "1.26 g/cm³",
-        "熔點": "169.0 °C",
-        "沸點": "> 500.0 °C",
-        "閃點": "無相關文獻數據",
-        "溶解度": "溶於熱水、乙醇",
-        "蒸氣壓": "0.000049 mmHg (25 °C)"
+        "外觀與性狀": "白色結晶性粉末", "密度": "1.26 g/cm³", "熔點": "169.0 °C", "沸點": "> 500.0 °C",
+        "閃點": "無相關文獻數據", "溶解度": "溶於熱水、乙醇", "蒸氣壓": "0.000049 mmHg (25 °C)"
     },
     "Potassium aluminium sulfate": {
-        "外觀與性狀": "無色透明結晶或白色結晶性粉末，無臭",
-        "密度": "1.757 g/cm³",
-        "熔點": "92.5 °C",
-        "沸點": "200.0 °C (失去結晶水分解)",
-        "閃點": "無相關文獻數據",
-        "溶解度": "易溶於水 (14.0 g/100 mL, 20 °C)，不溶於乙醇",
-        "蒸氣壓": "無相關文獻數據"
+        "外觀與性狀": "無色透明結晶或白色結晶性粉末，無臭", "密度": "1.757 g/cm³", "熔點": "92.5 °C", "沸點": "200.0 °C (失去結晶水分解)",
+        "閃點": "無相關文獻數據", "溶解度": "易溶於水 (14.0 g/100 mL, 20 °C)，不溶於乙醇", "蒸氣壓": "無相關文獻數據"
     },
     "Sodium chloride": {
-        "外觀與性狀": "白色結晶性粉末或立方晶體",
-        "密度": "2.165 g/cm³",
-        "熔點": "801.0 °C",
-        "沸點": "1413.0 °C",
-        "閃點": "無相關文獻數據",
-        "溶解度": "易溶於水 (36.0 g/100 mL, 20 °C)",
-        "蒸氣壓": "1 mmHg (865 °C)"
+        "外觀與性狀": "白色結晶性粉末或立方晶體", "密度": "2.165 g/cm³", "熔點": "801.0 °C", "沸點": "1413.0 °C",
+        "閃點": "無相關文獻數據", "溶解度": "易溶於水 (36.0 g/100 mL, 20 °C)", "蒸氣壓": "1 mmHg (865 °C)"
     }
 }
 
@@ -180,7 +150,7 @@ def fetch_sds_and_properties(cid, english_name):
                                             except: props["危害警告"] = raw_h[:5]
     except: pass
 
-    # 無痕混合機制：若 API 擷取因任何異常產生空項，直接由本地對應物理量無縫填補
+    # 無痕混合機制
     if is_local:
         for k in props.keys():
             if props[k] in ["無相關文獻數據", "無資料", "無", None] and k in local_data:
@@ -272,10 +242,18 @@ with st.sidebar:
     user_input = st.text_input("輸入化學名稱 (中文/英文)", "水").strip()
     style = st.selectbox("3D 渲染風格", ["stick", "sphere", "line", "cross"])
     search_button = st.button("🔍 檢索數據", type="primary")
+    
+    st.markdown("---")
+    st.header("🧠 核心運算引擎")
+    sim_model = st.selectbox("物理分析模型", [
+        "巨觀：連續體熱傳導 (FDM)", 
+        "微觀：能量封包隨機漫步 (統計力學)"
+    ], help="回應學術要求：微觀模型將模擬 10,000 顆能量粒子在化學鍵間的隨機碰撞，以此換算出巨觀溫度。")
+    
     st.markdown("---")
     env_temp = st.slider("環境溫度設定 (°C)", -20.0, 60.0, 25.0, step=0.5)
     init_temp = st.slider("中心點火溫度 (°C)", 50.0, 500.0, 500.0, step=10.0)
-    k_val = st.slider("熱傳導係數 (k)", 0.01, 0.50, 0.15, step=0.01)
+    k_val = st.slider("熱傳導係數/微觀活躍度 (k)", 0.01, 0.50, 0.15, step=0.01)
     sim_duration = st.slider("模擬總時長 (秒)", 3.0, 30.0, 10.0, step=1.0)
     anim_speed = st.slider("動畫每幀延遲 (ms)", 10, 200, 40, step=10)
 
@@ -336,20 +314,69 @@ with tab2:
         st.info("請在左側重新檢索具備立體座標的分子（例如：**水**、**阿斯匹靈**、**咖啡酸**、**苯**），即可解鎖流暢的 3D 動態模擬！")
     else:
         st.subheader(f"📊 {st.session_state.mol_name} - 3D 熱傳導動態模擬監控台")
+        
+        # 顯示當前使用的物理模型說明
+        if "微觀" in sim_model:
+            st.info("⚛️ **目前模式：統計熱力學 (微觀)**。系統已於核心原子注入 10,000 顆能量封包，粒子將沿化學鍵隨機漫步，並以粒子密度換算出巨觀溫度。")
+        else:
+            st.info("🌊 **目前模式：傅立葉熱力學 (巨觀)**。系統正利用圖拉普拉斯矩陣 (Laplacian Matrix) 求解二階偏微分方程式，計算連續介質的熱擴散。")
+
         start_anim = st.button("▶️ 開始執行熱傳導模擬動畫", type="primary", use_container_width=True)
         
         if start_anim:
-            with st.spinner("⚡ 正在求解偏微分方程絕對精確解..."):
-                G = nx.Graph()
-                G.add_nodes_from(st.session_state.mol_atoms); G.add_edges_from(st.session_state.mol_bonds)
-                L = nx.laplacian_matrix(G).toarray()
-                T0 = np.array([env_temp if i != st.session_state.core_node else init_temp for i in st.session_state.mol_atoms])
+            with st.spinner(f"⚡ 正在啟動 {sim_model.split('：')[0]} 引擎，計算分子熱傳導..."):
                 times = np.linspace(0, sim_duration, 100)
                 
-                history = [expm(-k_val * t * 1.0 * L).dot(T0) for t in times]
+                # ==========================================
+                # 引擎 1：巨觀連續體模型 (FDM/Laplacian)
+                # ==========================================
+                if "巨觀" in sim_model:
+                    G = nx.Graph()
+                    G.add_nodes_from(st.session_state.mol_atoms); G.add_edges_from(st.session_state.mol_bonds)
+                    L = nx.laplacian_matrix(G).toarray()
+                    T0 = np.array([env_temp if i != st.session_state.core_node else init_temp for i in st.session_state.mol_atoms])
+                    history = [expm(-k_val * t * 1.0 * L).dot(T0) for t in times]
+                
+                # ==========================================
+                # 引擎 2：微觀隨機漫步模型 (教授指定升級版)
+                # ==========================================
+                else:
+                    num_packets = 10000 # 注入一萬顆微觀能量粒子
+                    # 粒子初始位置全在核心原子
+                    particles = np.full(num_packets, st.session_state.core_node)
+                    # 每個粒子的溫度權重 = 總溫差 / 粒子數
+                    temp_scale = (init_temp - env_temp) / num_packets
+                    
+                    # 建立化學鍵的鄰接表 (加入自身，模擬熱容與滯留)
+                    adj_list = {n: [n] for n in st.session_state.mol_atoms}
+                    for u, v in st.session_state.mol_bonds:
+                        adj_list[u].append(v)
+                        adj_list[v].append(u)
+                        
+                    history = []
+                    # 利用 k_val 控制粒子隨機漫步的活躍程度 (步數)
+                    jumps_per_frame = int(k_val * 40) + 1 
+                    
+                    for step in range(len(times)):
+                        # 1. 統計當前每顆原子上的粒子數量
+                        counts = {n: 0 for n in st.session_state.mol_atoms}
+                        for p in particles:
+                            counts[p] += 1
+                        
+                        # 2. 微觀轉巨觀：將粒子密度轉換回溫度 T_i = T_env + (N_packets * Scale)
+                        T_arr = np.array([env_temp + counts[n] * temp_scale for n in st.session_state.mol_atoms])
+                        history.append(T_arr)
+                        
+                        # 3. 隨機漫步：每顆粒子沿化學鍵隨機移動
+                        for _ in range(jumps_per_frame):
+                            particles = [np.random.choice(adj_list[p]) for p in particles]
+                # ==========================================
+
+                # 提取圖表與動畫用的核心及邊緣節點歷史數據
                 c_hist = [h[st.session_state.mol_atoms.index(st.session_state.core_node)] for h in history]
                 e_hist = [h[st.session_state.mol_atoms.index(st.session_state.edge_node)] for h in history]
                 
+                # ---------------- 以下所有繪圖與 HTML 程式碼完全不動 ----------------
                 fig3d = go.Figure()
                 p3d = st.session_state.mol_coords
                 for b in st.session_state.mol_bonds:
@@ -370,17 +397,14 @@ with tab2:
                     anim_frames.append(go.Frame(data=[go.Scatter3d(marker=dict(color=h, cmin=env_temp-5, cmax=init_temp+5), text=step_labels)], name=f"f{step}", traces=[len(st.session_state.mol_bonds)]))
                 fig3d.frames = anim_frames
 
-                # 🚀 重新加上 autosize=True，讓圖表寬度能自動填滿外框，杜絕水平卷軸
                 fig3d.update_layout(autosize=True, height=800, title="🔥 真實 3D 空間熱擴散", template="plotly_dark", margin=dict(l=10, r=10, b=10, t=40), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False), updatemenus=[dict(type="buttons", active=-1, showactive=False, y=-0.05, x=0.5, xanchor="center", direction="left", buttons=[dict(label="▶️ 播放聯動", method="animate", args=[None, dict(frame=dict(duration=anim_speed, redraw=True), fromcurrent=True, mode="immediate", transition=dict(duration=0))]), dict(label="⏸️ 暫停", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate", transition=dict(duration=0))])])])
                 
                 fig2d = go.Figure()
                 fig2d.add_trace(go.Scatter(x=[times[0]], y=[c_hist[0]], mode='lines', name="中心點火源", line=dict(color='red', width=3)))
                 fig2d.add_trace(go.Scatter(x=[times[0]], y=[e_hist[0]], mode='lines', name="外圍測溫點", line=dict(color='blue', width=3)))
                 
-                # 🚀 重新加上 autosize=True，並設定超寬裕的 margin: l=70, b=60，徹底消滅被吃掉的字體
                 fig2d.update_layout(autosize=True, height=450, title="📈 絕對精確溫度動態變化 (°C)", template="plotly_dark", margin=dict(l=70, r=20, b=60, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[env_temp-10, init_temp+20], title="溫度 (°C)"))
                 
-                # 🚀 加上 config={'responsive': True} 讓 Plotly 正式聽從 CSS 網格指揮
                 html_3d = fig3d.to_html(include_plotlyjs='cdn', full_html=False, div_id='plot-3d', config={'responsive': True})
                 html_2d = fig2d.to_html(include_plotlyjs=False, full_html=False, div_id='plot-2d', config={'responsive': True})
                 
@@ -417,7 +441,6 @@ with tab2:
                             grid-column: 2 / 3;
                             grid-row: 1 / 2;
                             border-bottom: 2px solid #333;
-                            /* 🚀 強制裁切，絕對不准長出卷軸 */
                             overflow: hidden; 
                         }
                         #bottom-right-pane {
@@ -427,7 +450,6 @@ with tab2:
                             background: #1a1a1a;
                             padding: 15px;
                         }
-                        /* 🚀 強迫 Plotly 畫布 100% 填滿不溢出 */
                         .js-plotly-plot, .plot-container {
                             width: 100% !important;
                             height: 100% !important;
