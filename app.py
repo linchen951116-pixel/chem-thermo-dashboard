@@ -20,6 +20,7 @@ st.set_page_config(page_title="化學物質分析與動態熱力學系統", layo
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
 
+# 物理引擎：真實原子資料庫 (原子量與相對半徑)
 ATOMIC_DATA = {
     "H": {"mass": 1.008, "radius": 12}, "C": {"mass": 12.011, "radius": 22},
     "N": {"mass": 14.007, "radius": 19}, "O": {"mass": 15.999, "radius": 18},
@@ -51,7 +52,7 @@ LOCAL_DATABASE = {
 }
 
 # ==========================================
-# 原始數據抓取與智慧正規化引擎 (100% 完整還原)
+# 原始數據抓取與智慧正規化引擎
 # ==========================================
 def contains_chinese(text): return bool(re.search('[\u4e00-\u9fff]', text))
 
@@ -165,8 +166,7 @@ def run_search(query_name):
             if hasattr(atom, 'x') and atom.x is not None: real_coords[atom.aid] = [atom.x, atom.y, atom.z]
     
     dim_type = "3D 立體" if len(real_coords) > 0 else "2D 平面"
-    mw = c_std.molecular_weight; tpsa = c_std.tpsa
-    hbd = c_std.h_bond_donor_count; hba = c_std.h_bond_acceptor_count
+    mw = c_std.molecular_weight; tpsa = c_std.tpsa; hbd = c_std.h_bond_donor_count; hba = c_std.h_bond_acceptor_count
     smiles = c_std.isomeric_smiles or c_std.canonical_smiles
     sds_props = fetch_sds_and_properties(cid, english_name)
 
@@ -182,7 +182,6 @@ def run_search(query_name):
     st.session_state.mol_bonds = [(bond.aid1, bond.aid2) for bond in sim_source.bonds]
     st.session_state.mol_coords = real_coords
     st.session_state.mol_name = english_name.capitalize()
-    
     st.session_state.atom_elements = {atom.aid: atom.element for atom in sim_source.atoms}
     st.session_state.mol_bonds_info = [{'u': bond.aid1, 'v': bond.aid2, 'order': bond.order} for bond in sim_source.bonds]
     
@@ -236,7 +235,7 @@ if search_button and user_input:
 tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 網格分離式動畫儀表板"])
 
 # ==========================================
-# 原始 Tab 1 介面 (100% 完整還原)
+# 原始 Tab 1 介面 
 # ==========================================
 with tab1:
     sd = st.session_state.search_data
@@ -282,7 +281,7 @@ with tab1:
         st.markdown(f"| 屬性類別 | 文獻實測數據 (包含單位) |\n| :--- | :--- |\n| 🧊 **密度 (Density)** | {sds['密度']} |\n| ♨️ **沸點 (Boiling Point)** | {sds['沸點']} |\n| ❄️ **熔點 (Melting Point)** | {sds['熔點']} |\n| 🔥 **閃點 (Flash Point)** | {sds['閃點']} |\n| 💧 **溶解度 (Solubility)** | {sds['溶解度']} |\n| ☁️ **蒸氣壓 (Vapor Pressure)** | {sds['蒸氣壓']} |\n| 👁️ **外觀與性狀** | {sds['外觀與性狀']} |")
 
 # ==========================================
-# Tab 2：極速物理運算引擎與原汁原味的版面
+# Tab 2：極速物理運算引擎與客製化懸浮按鈕 (完全解決暴走 Bug 且保留版面)
 # ==========================================
 with tab2:
     if st.session_state.search_data['dim_type'] == "2D 平面":
@@ -296,22 +295,16 @@ with tab2:
         for aid in st.session_state.mol_atoms:
             elem = st.session_state.atom_elements.get(aid, "C")
             data = ATOMIC_DATA.get(elem, ATOMIC_DATA["default"])
-            radii_list.append(data["radius"] * 1.8) # 視覺放大 1.8 倍
+            radii_list.append(data["radius"] * 1.8) 
             mass_list.append(data["mass"])
             element_texts.append(elem)
         
-        if "微觀" in sim_model:
-            st.info("⚛️ **聲子躍遷模型**：結合鍵能權重。大質量原子升溫慢，雙鍵傳遞能量快。")
-        else:
-            st.info("🌊 **連續體 FDM**：結合質量正規化矩陣 $dT/dt = -M^{-1} L T$ 進行熱量擴散。")
-
-        start_anim = st.button("▶️ 啟動極速物理運算引擎", type="primary", use_container_width=True)
+        start_anim = st.button("▶️ 啟動極速物理運算引擎 (動態色彩校正版)", type="primary", use_container_width=True)
         
         if start_anim:
             with st.spinner("⚡ 系統正在進行超高速矩陣解算與平衡溫度校準..."):
                 times = np.linspace(0, sim_duration, 100)
                 
-                # 引擎 1：巨觀 FDM 
                 if "巨觀" in sim_model:
                     G = nx.Graph()
                     G.add_nodes_from(st.session_state.mol_atoms)
@@ -329,14 +322,11 @@ with tab2:
                         history.append(T_curr)
                         
                     val_name, val_unit = "巨觀溫度", "°C"
-                    
-                    # 💡 物理守恆法則校正：計算最終熱平衡溫度，動態限縮色彩映射範圍
                     eq_temp = (init_temp + env_temp * (num_atoms - 1)) / num_atoms
                     visual_cmax = env_temp + (eq_temp - env_temp) * 2.5
                     val_cmin = env_temp
                     val_cmax = min(visual_cmax, init_temp) if visual_cmax > env_temp else env_temp + 5
                 
-                # 引擎 2：微觀聲子躍遷 
                 else:
                     kB_meV = 0.08617 
                     E_env_meV = kB_meV * (env_temp + 273.15)
@@ -364,8 +354,6 @@ with tab2:
                             phonons = [random.choice(adj_tuple[p]) for p in phonons]
                             
                     val_name, val_unit = "分子內能", "meV"
-                    
-                    # 💡 物理守恆法則校正：計算能量平衡，動態限縮色彩映射範圍
                     eq_E = (E_core_meV + E_env_meV * (num_atoms - 1)) / num_atoms
                     visual_cmax = E_env_meV + (eq_E - E_env_meV) * 2.5
                     val_cmin = E_env_meV
@@ -374,7 +362,6 @@ with tab2:
                 c_hist = [h[st.session_state.mol_atoms.index(st.session_state.core_node)] for h in history]
                 e_hist = [h[st.session_state.mol_atoms.index(st.session_state.edge_node)] for h in history]
                 
-                # 報告區
                 st.markdown("### 📝 科學洞察報告 (AI Insights)")
                 i1, i2, i3, i4 = st.columns(4)
                 i1.metric("⚛️ 參與傳導總原子數", f"{len(st.session_state.mol_atoms)} 顆")
@@ -382,41 +369,24 @@ with tab2:
                 i3.metric("⚖️ 系統平均原子量", f"{np.mean(mass_list):.1f} amu")
                 i4.metric("⏱️ 達平衡殘餘差值", f"{abs(c_hist[-1] - e_hist[-1]):.2f} {val_unit}")
 
-                # 3D繪圖
+                # 3D繪圖 (拔除 Plotly 原生按鈕)
                 fig3d = go.Figure()
                 p3d = st.session_state.mol_coords
+                node_trace_idx = len(st.session_state.mol_bonds) 
                 
                 for b in st.session_state.mol_bonds:
                     fig3d.add_trace(go.Scatter3d(x=[p3d[b[0]][0], p3d[b[1]][0]], y=[p3d[b[0]][1], p3d[b[1]][1]], z=[p3d[b[0]][2], p3d[b[1]][2]], mode='lines', line=dict(color='gray', width=3), hoverinfo='none', showlegend=False))
                 
                 init_h = history[0]
-                init_hover_labels = [f"<b>{element_texts[i]}</b> (ID:{st.session_state.mol_atoms[i]})<br>{val_name}: {init_h[i]:.1f} {val_unit}" for i in range(num_atoms)]
-                
                 fig3d.add_trace(go.Scatter3d(
                     x=[p3d[i][0] for i in st.session_state.mol_atoms], y=[p3d[i][1] for i in st.session_state.mol_atoms], z=[p3d[i][2] for i in st.session_state.mol_atoms], 
-                    mode='markers+text', text=element_texts, hovertext=init_hover_labels, hoverinfo='text', textposition='middle center',
+                    mode='markers+text', text=element_texts, hoverinfo='text', textposition='middle center',
                     textfont=dict(color='white', size=16, family="Arial Black"), showlegend=False,
                     marker=dict(size=radii_list, color=init_h, colorscale='Turbo', cmin=val_cmin, cmax=val_cmax, colorbar=dict(title=f"{val_name}<br>(高於 {val_cmax:.1f} 呈現極值紅)", thickness=10, x=-0.05))
                 ))
                 
-                anim_frames = []
-                for step, h in enumerate(history):
-                    step_hover_labels = [f"<b>{element_texts[i]}</b> (ID:{st.session_state.mol_atoms[i]})<br>{val_name}: {h[i]:.1f} {val_unit}" for i in range(num_atoms)]
-                    anim_frames.append(go.Frame(data=[go.Scatter3d(marker=dict(color=h, cmin=val_cmin, cmax=val_cmax), hovertext=step_hover_labels)], name=f"f{step}", traces=[len(st.session_state.mol_bonds)]))
-                fig3d.frames = anim_frames
-
-                # 💡 原汁原味的 Plotly 原生控制列，並在 args 中徹底移除 mode="immediate" 以修正加速 Bug
-                fig3d.update_layout(
-                    autosize=True, height=800, title=f"🔥 真實 3D {val_name} 擴散 (能量守恆色彩校正版)", 
-                    template="plotly_dark", margin=dict(l=10, r=10, b=10, t=50), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False),
-                    updatemenus=[dict(
-                        type="buttons", active=-1, showactive=False, y=-0.05, x=0.5, xanchor="center", direction="left", 
-                        buttons=[
-                            dict(label="▶️ 播放聯動", method="animate", args=[None, dict(frame=dict(duration=anim_speed, redraw=True), fromcurrent=True, transition=dict(duration=0))]), 
-                            dict(label="⏸️ 暫停", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate", transition=dict(duration=0))])
-                        ]
-                    )]
-                )
+                # 💡 這裡【不設定】updatemenus，我們靠自製的懸浮按鈕驅動
+                fig3d.update_layout(autosize=True, height=800, title=f"🔥 真實 3D {val_name} 擴散 (能量守恆色彩校正版)", template="plotly_dark", margin=dict(l=10, r=10, b=10, t=50), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False))
                 
                 fig2d = go.Figure()
                 fig2d.add_trace(go.Scatter(x=[times[0]], y=[c_hist[0]], mode='lines', name="中心源", line=dict(color='red', width=3)))
@@ -431,7 +401,7 @@ with tab2:
                 
                 table_rows = "".join([f"<tr style='border-bottom:1px solid #333;'><td style='padding:6px;'>{element_texts[i]} ({id})</td><td style='padding:6px;'>{'🔥 核心源' if id == st.session_state.core_node else '❄️ 外部點' if id == st.session_state.edge_node else '傳導中圈'}</td><td id='val-{i}' style='color:#00ffcc; font-weight:bold; padding:6px;'>{init_h[i]:.1f} {val_unit}</td></tr>" for i, id in enumerate(st.session_state.mol_atoms)])
 
-                # 💡 原汁原味的 HTML 網格版面
+                # 💡 視覺欺騙術：把客製化按鈕定在圖表正下方 (模仿原生 Plotly 的版面)
                 html_template = """
                 <!DOCTYPE html>
                 <html>
@@ -439,16 +409,25 @@ with tab2:
                     <style>
                         body, html { margin: 0; padding: 0; background-color: #0e1117; width: 100%; height: 100%; overflow: hidden; box-sizing: border-box; }
                         #fs-container { display: grid; grid-template-columns: 60% 40%; grid-template-rows: 450px 350px; width: 100%; height: 800px; background: #0e1117; position: relative; }
-                        #left-pane { grid-column: 1 / 2; grid-row: 1 / 3; border-right: 2px solid #333; overflow: hidden; }
+                        #left-pane { grid-column: 1 / 2; grid-row: 1 / 3; border-right: 2px solid #333; position: relative; overflow: hidden; }
                         #top-right-pane { grid-column: 2 / 3; grid-row: 1 / 2; border-bottom: 2px solid #333; overflow: hidden; }
                         #bottom-right-pane { grid-column: 2 / 3; grid-row: 2 / 3; overflow-y: auto; background: #1a1a1a; padding: 15px; }
                         .js-plotly-plot, .plot-container { width: 100% !important; height: 100% !important; }
+                        .hover-btn:hover { background: rgba(255,255,255,0.1) !important; }
                     </style>
                 </head>
                 <body>
                     <button style="position:absolute; top:10px; right:20px; z-index:9999; background:rgba(255,255,255,0.1); color:#fff; border:1px solid rgba(255,255,255,0.4); padding:6px 12px; border-radius:4px; cursor:pointer;" onclick="toggleFS()">⤢ 全螢幕</button>
                     <div id="fs-container">
-                        <div id="left-pane"> __HTML_3D__ </div>
+                        <div id="left-pane"> 
+                            __HTML_3D__ 
+                            <div style="position: absolute; bottom: 15px; left: 0; width: 100%; display: flex; justify-content: center; z-index: 9999; pointer-events: none;">
+                                <div style="background: rgba(30,30,30,0.9); border: 1px solid #555; border-radius: 4px; display: flex; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: auto;">
+                                    <button class="hover-btn" onclick="playAnim()" style="background: transparent; color: white; border: none; padding: 6px 15px; cursor: pointer; border-right: 1px solid #555; font-family: sans-serif; font-size: 13px;">▶️ 播放聯動</button>
+                                    <button class="hover-btn" onclick="pauseAnim()" style="background: transparent; color: white; border: none; padding: 6px 15px; cursor: pointer; font-family: sans-serif; font-size: 13px;">⏸️ 暫停</button>
+                                </div>
+                            </div>
+                        </div>
                         <div id="top-right-pane"> __HTML_2D__ </div>
                         <div id="bottom-right-pane">
                             <table style="width:100%; border-collapse:collapse; text-align:center; color:white; font-family:sans-serif;">
@@ -467,25 +446,37 @@ with tab2:
                         function toggleFS() { let elem = document.documentElement; if (!document.fullscreenElement) { elem.requestFullscreen(); } else { document.exitFullscreen(); } }
                         
                         var h_data = __HISTORY_JSON__, t_data = __TIME_JSON__, c_data = __CORE_JSON__, e_data = __EDGE_JSON__;
-                        var a_list = __ATOMS_JSON__, v_unit = "__VAL_UNIT__";
+                        var a_list = __ATOMS_JSON__, elem_list = __ELEM_JSON__, v_unit = "__VAL_UNIT__", v_name = "__VAL_NAME__";
+                        var anim_speed = __ANIM_SPEED__, node_trace_idx = __NODE_TRACE_IDX__;
                         
-                        var checkExist = setInterval(function() {
-                            var gd3d = document.getElementById('plot-3d');
-                            var gd2d = document.getElementById('plot-2d');
-                            if (gd3d && typeof gd3d.on === 'function' && gd2d && typeof Plotly !== 'undefined') {
-                                clearInterval(checkExist);
-                                gd3d.on('plotly_animatingframe', function(eventData) {
-                                    var step = parseInt(eventData.name.replace('f', ''));
-                                    if (h_data[step]) {
-                                        for (var i = 0; i < a_list.length; i++) {
-                                            var cell = document.getElementById('val-' + i);
-                                            if (cell) { cell.innerText = h_data[step][i].toFixed(1) + ' ' + v_unit; }
-                                        }
-                                    }
-                                    Plotly.restyle(gd2d, {'x': [t_data.slice(0, step + 1), t_data.slice(0, step + 1)], 'y': [c_data.slice(0, step + 1), e_data.slice(0, step + 1)]}, [0, 1]);
-                                });
+                        var currentStep = 0, timer = null, playing = false;
+
+                        function playAnim() {
+                            if (playing || typeof Plotly === 'undefined') return;
+                            playing = true;
+                            timer = setInterval(function() {
+                                currentStep++;
+                                if (currentStep >= h_data.length) currentStep = 0;
+                                updateVisuals(currentStep);
+                            }, anim_speed);
+                        }
+
+                        function pauseAnim() {
+                            playing = false;
+                            clearInterval(timer);
+                        }
+
+                        function updateVisuals(step) {
+                            var colors = h_data[step];
+                            var hovertexts = [];
+                            for (var i = 0; i < a_list.length; i++) {
+                                hovertexts.push("<b>" + elem_list[i] + "</b> (ID:" + a_list[i] + ")<br>" + v_name + ": " + colors[i].toFixed(1) + " " + v_unit);
+                                var cell = document.getElementById('val-' + i);
+                                if (cell) { cell.innerText = colors[i].toFixed(1) + ' ' + v_unit; }
                             }
-                        }, 200);
+                            Plotly.restyle('plot-3d', {'marker.color': [colors], 'hovertext': [hovertexts]}, [node_trace_idx]);
+                            Plotly.restyle('plot-2d', {'x': [t_data.slice(0, step + 1), t_data.slice(0, step + 1)], 'y': [c_data.slice(0, step + 1), e_data.slice(0, step + 1)]}, [0, 1]);
+                        }
                         
                         window.onload = function() { setTimeout(function() { window.dispatchEvent(new Event('resize')); }, 500); };
                     </script>
@@ -497,6 +488,8 @@ with tab2:
                     .replace("__TABLE_ROWS__", table_rows).replace("__HISTORY_JSON__", history_json)\
                     .replace("__TIME_JSON__", time_json).replace("__CORE_JSON__", core_json)\
                     .replace("__EDGE_JSON__", edge_json).replace("__ATOMS_JSON__", atoms_json)\
-                    .replace("__VAL_NAME__", val_name).replace("__VAL_UNIT__", val_unit)
+                    .replace("__VAL_NAME__", val_name).replace("__VAL_UNIT__", val_unit)\
+                    .replace("__ELEM_JSON__", elem_json).replace("__ANIM_SPEED__", str(anim_speed))\
+                    .replace("__NODE_TRACE_IDX__", str(node_trace_idx))
                     
                 components.html(custom_html, height=850)
