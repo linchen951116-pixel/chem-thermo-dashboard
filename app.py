@@ -78,7 +78,7 @@ LOCAL_DATABASE = {
 }
 
 # ==========================================
-# 你的原始數據抓取與智慧正規化引擎 (100% 完整還原)
+# 原始數據抓取與智慧正規化引擎 (100% 完整還原)
 # ==========================================
 def contains_chinese(text): 
     return bool(re.search('[\u4e00-\u9fff]', text))
@@ -286,7 +286,7 @@ if search_button and user_input:
 tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 網格分離式動畫儀表板"])
 
 # ==========================================
-# 你的原始 Tab 1 介面 (100% 完整還原)
+# 原始 Tab 1 介面 (100% 完整還原)
 # ==========================================
 with tab1:
     sd = st.session_state.search_data
@@ -332,7 +332,7 @@ with tab1:
         st.markdown(f"| 屬性類別 | 文獻實測數據 (包含單位) |\n| :--- | :--- |\n| 🧊 **密度 (Density)** | {sds['密度']} |\n| ♨️ **沸點 (Boiling Point)** | {sds['沸點']} |\n| ❄️ **熔點 (Melting Point)** | {sds['熔點']} |\n| 🔥 **閃點 (Flash Point)** | {sds['閃點']} |\n| 💧 **溶解度 (Solubility)** | {sds['溶解度']} |\n| ☁️ **蒸氣壓 (Vapor Pressure)** | {sds['蒸氣壓']} |\n| 👁️ **外觀與性狀** | {sds['外觀與性狀']} |")
 
 # ==========================================
-# Tab 2：極速物理運算引擎與含標籤的 3D 渲染
+# Tab 2：極速物理運算引擎與含標籤的 3D 渲染 (已修復 Plotly 暴走 Bug)
 # ==========================================
 with tab2:
     if st.session_state.search_data['dim_type'] == "2D 平面":
@@ -448,7 +448,8 @@ with tab2:
                     anim_frames.append(go.Frame(data=[go.Scatter3d(marker=dict(color=h, cmin=val_cmin, cmax=val_cmax), hovertext=step_hover_labels)], name=f"f{step}", traces=[len(st.session_state.mol_bonds)]))
                 fig3d.frames = anim_frames
 
-                fig3d.update_layout(autosize=True, height=800, title=f"🔥 真實 3D {val_name} 擴散 (依原子半徑渲染)", template="plotly_dark", margin=dict(l=10, r=10, b=10, t=40), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False), updatemenus=[dict(type="buttons", active=-1, showactive=False, y=-0.05, x=0.5, xanchor="center", direction="left", buttons=[dict(label="▶️ 播放聯動", method="animate", args=[None, dict(frame=dict(duration=anim_speed, redraw=True), fromcurrent=True, mode="immediate", transition=dict(duration=0))]), dict(label="⏸️ 暫停", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate", transition=dict(duration=0))])])])
+                # 💡 修復 Bug 的地方：這裡的 buttons 設定已經移除了播放鍵的 mode="immediate"
+                fig3d.update_layout(autosize=True, height=800, title=f"🔥 真實 3D {val_name} 擴散 (依原子半徑渲染)", template="plotly_dark", margin=dict(l=10, r=10, b=10, t=40), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False), updatemenus=[dict(type="buttons", active=-1, showactive=False, y=-0.05, x=0.5, xanchor="center", direction="left", buttons=[dict(label="▶️ 播放聯動", method="animate", args=[None, dict(frame=dict(duration=anim_speed, redraw=True), fromcurrent=True, transition=dict(duration=0))]), dict(label="⏸️ 暫停", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate", transition=dict(duration=0))])])])
                 
                 fig2d = go.Figure()
                 fig2d.add_trace(go.Scatter(x=[times[0]], y=[c_hist[0]], mode='lines', name="中心源", line=dict(color='red', width=3)))
