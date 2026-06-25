@@ -10,13 +10,14 @@ from deep_translator import GoogleTranslator
 import re
 import requests
 import json
-import random  # 🚀 新增原生 random 模組以極限提升微觀運算速度
+import random
 import streamlit.components.v1 as components
 
 # ==========================================
 # 網頁基礎設定與元素週期表資料庫
 # ==========================================
 st.set_page_config(page_title="化學物質分析與動態熱力學系統", layout="wide")
+
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
 
 # 物理引擎：真實原子資料庫 (原子量與相對半徑)
@@ -32,9 +33,10 @@ ATOMIC_DATA = {
     "Cl": {"mass": 35.45, "radius": 22},
     "K": {"mass": 39.098, "radius": 32},
     "I": {"mass": 126.90, "radius": 28},
-    "default": {"mass": 12.0, "radius": 18}
+    "default": {"mass": 12.0, "radius": 18} # 預設值
 }
 
+# 你的在地核心數據庫 (全面鎖死演示物質，根絕網路波動導致的空值)
 LOCAL_CHEM_DICT = {
     "阿斯匹靈": "Aspirin", "普拿疼": "Acetaminophen", "雙氧水": "Hydrogen peroxide",
     "鹽酸": "Hydrochloric acid", "硫酸": "Sulfuric acid", "硝酸": "Nitric acid",
@@ -47,44 +49,106 @@ LOCAL_CHEM_DICT = {
     "明礬": "Potassium aluminium sulfate", "碘化鎂": "Magnesium iodide"
 }
 
+# 你的完整擴充核心數據庫
 LOCAL_DATABASE = {
-    "Water": {"外觀與性狀": "無色無味透明液體", "密度": "1.00 g/cm³", "熔點": "0.0 °C", "沸點": "100.0 °C", "閃點": "無相關文獻數據 (不可燃)", "溶解度": "與多數極性溶劑完全互溶", "蒸氣壓": "17.5 mmHg (20 °C)"},
-    "Magnesium iodide": {"外觀與性狀": "白色結晶性粉末，極易潮解", "密度": "4.48 g/cm³", "熔點": "637.0 °C", "沸點": "無相關文獻數據 (加熱時分解)", "閃點": "無相關文獻數據", "溶解度": "極易溶於水 (140 g/100 mL, 20 °C)，溶於乙醇", "蒸氣壓": "無相關文獻數據"},
-    "Aspirin": {"外觀與性狀": "白色結晶或結晶性粉末", "密度": "1.40 g/cm³", "熔點": "135.0 °C", "沸點": "140.0 °C (分解)", "閃點": "250.0 °C", "溶解度": "微溶於水，易溶於乙醇、乙醚", "蒸氣壓": "0.000041 mmHg (25 °C)"},
-    "Acetaminophen": {"外觀與性狀": "白色結晶性粉末", "密度": "1.26 g/cm³", "熔點": "169.0 °C", "沸點": "> 500.0 °C", "閃點": "無相關文獻數據", "溶解度": "溶於熱水、乙醇", "蒸氣壓": "0.000049 mmHg (25 °C)"},
-    "Potassium aluminium sulfate": {"外觀與性狀": "無色透明結晶或白色結晶性粉末，無臭", "密度": "1.757 g/cm³", "熔點": "92.5 °C", "沸點": "200.0 °C (失去結晶水分解)", "閃點": "無相關文獻數據", "溶解度": "易溶於水 (14.0 g/100 mL, 20 °C)，不溶於乙醇", "蒸氣壓": "無相關文獻數據"},
-    "Sodium chloride": {"外觀與性狀": "白色結晶性粉末或立方晶體", "密度": "2.165 g/cm³", "熔點": "801.0 °C", "沸點": "1413.0 °C", "閃點": "無相關文獻數據", "溶解度": "易溶於水 (36.0 g/100 mL, 20 °C)", "蒸氣壓": "1 mmHg (865 °C)"}
+    "Water": {
+        "外觀與性狀": "無色無味透明液體", "密度": "1.00 g/cm³", "熔點": "0.0 °C", "沸點": "100.0 °C",
+        "閃點": "無相關文獻數據 (不可燃)", "溶解度": "與多數極性溶劑完全互溶", "蒸氣壓": "17.5 mmHg (20 °C)"
+    },
+    "Magnesium iodide": {
+        "外觀與性狀": "白色結晶性粉末，極易潮解", "密度": "4.48 g/cm³", "熔點": "637.0 °C", "沸點": "無相關文獻數據 (加熱時分解)",
+        "閃點": "無相關文獻數據", "溶解度": "極易溶於水 (140 g/100 mL, 20 °C)，溶於乙醇", "蒸氣壓": "無相關文獻數據"
+    },
+    "Aspirin": {
+        "外觀與性狀": "白色結晶或結晶性粉末", "密度": "1.40 g/cm³", "熔點": "135.0 °C", "沸點": "140.0 °C (分解)",
+        "閃點": "250.0 °C", "溶解度": "微溶於水，易溶於乙醇、乙醚", "蒸氣壓": "0.000041 mmHg (25 °C)"
+    },
+    "Acetaminophen": {
+        "外觀與性狀": "白色結晶性粉末", "密度": "1.26 g/cm³", "熔點": "169.0 °C", "沸點": "> 500.0 °C",
+        "閃點": "無相關文獻數據", "溶解度": "溶於熱水、乙醇", "蒸氣壓": "0.000049 mmHg (25 °C)"
+    },
+    "Potassium aluminium sulfate": {
+        "外觀與性狀": "無色透明結晶或白色結晶性粉末，無臭", "密度": "1.757 g/cm³", "熔點": "92.5 °C", "沸點": "200.0 °C (失去結晶水分解)",
+        "閃點": "無相關文獻數據", "溶解度": "易溶於水 (14.0 g/100 mL, 20 °C)，不溶於乙醇", "蒸氣壓": "無相關文獻數據"
+    },
+    "Sodium chloride": {
+        "外觀與性狀": "白色結晶性粉末或立方晶體", "密度": "2.165 g/cm³", "熔點": "801.0 °C", "沸點": "1413.0 °C",
+        "閃點": "無相關文獻數據", "溶解度": "易溶於水 (36.0 g/100 mL, 20 °C)", "蒸氣壓": "1 mmHg (865 °C)"
+    }
 }
 
 # ==========================================
-# 核心引擎：快取與數據正規化
+# 你的原始數據抓取與智慧正規化引擎 (100% 完整還原)
 # ==========================================
-def contains_chinese(text): return bool(re.search('[\u4e00-\u9fff]', text))
+def contains_chinese(text): 
+    return bool(re.search('[\u4e00-\u9fff]', text))
+
+def translate_via_wikipedia(zh_name):
+    try:
+        url = f"https://zh.wikipedia.org/w/api.php?action=query&prop=langlinks&titles={zh_name}&lllang=en&format=json"
+        res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=5).json()
+        for _, page_info in res.get("query", {}).get("pages", {}).items():
+            if "langlinks" in page_info: return page_info["langlinks"][0]["*"] 
+    except: pass
+    return None
+
 def fix_chemical_formula(formula):
     if not formula: return "無文獻資料"
     fix_map = {"ClNa": "NaCl", "HNaO": "NaOH", "ClK": "KCl", "HKO": "KOH", "IK": "KI", "KNO2": "KNO₂", "NO2K": "KNO₂", "NO3K": "KNO₃", "C2H4O2": "CH₃COOH", "H2O": "H₂O", "I2Mg": "MgI₂"}
-    return fix_map.get(formula, formula)
+    if formula in fix_map: return fix_map[formula]
+    return formula
+
+def simplify_physical_state(text):
+    if not text or text == "無相關文獻數據": return text
+    t = text.lower()
+    if any(kw in t for kw in ["solid", "crystal", "powder", "pellet", "salt"]): return "固體"
+    elif any(kw in t for kw in ["liquid", "fluid"]) and "solution" not in t: return "液體"
+    elif any(kw in t for kw in ["gas", "vapor"]): return "氣體"
+    elif "solution" in t or "aqueous" in t: return "水溶液"
+    return text
+
+def standardize_temperature(raw_str):
+    if not raw_str: return None
+    c_single = re.search(r'(-?\d+\.?\d*)\s*(?:°C|deg C|C\b)', raw_str, re.IGNORECASE)
+    if c_single: return f"{c_single.group(1)} °C"
+    f_match = re.search(r'(-?\d+\.?\d*)\s*(?:°F|deg F|F\b)', raw_str, re.IGNORECASE)
+    if f_match: return f"{(float(f_match.group(1)) - 32) * 5.0 / 9.0:.1f} °C"
+    k_match = re.search(r'(-?\d+\.?\d*)\s*(?:K\b)', raw_str)
+    if k_match: return f"{float(k_match.group(1)) - 273.15:.1f} °C"
+    return None
 
 @st.cache_data(show_spinner=False)
 def fetch_sds_and_properties(cid, english_name):
     props = {"外觀與性狀": "無相關文獻數據", "密度": "無相關文獻數據", "熔點": "無相關文獻數據", "沸點": "無相關文獻數據", "閃點": "無相關文獻數據", "溶解度": "無相關文獻數據", "蒸氣壓": "無相關文獻數據", "危險信號詞": "無標示 / 安全", "危害警告": []}
+    
     std_name = english_name.capitalize()
-    local_data = LOCAL_DATABASE.get(std_name, {})
+    is_local = std_name in LOCAL_DATABASE
+    local_data = LOCAL_DATABASE[std_name] if is_local else {}
+
     try:
         url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/{cid}/JSON"
         res = requests.get(url, timeout=10).json()
         sections = res.get("Record", {}).get("Section", [])
         p_map = {"Physical Description": "外觀與性狀", "Density": "密度", "Melting Point": "熔點", "Boiling Point": "沸點", "Flash Point": "閃點", "Solubility": "溶解度", "Vapor Pressure": "蒸氣壓"}
+        
         for sec in sections:
             if sec.get("TOCHeading") == "Chemical and Physical Properties":
                 for subsec in sec.get("Section", []):
                     if subsec.get("TOCHeading") in ["Experimental Properties", "Computed Properties"]:
                         for prop in subsec.get("Section", []):
                             h = prop.get("TOCHeading")
-                            if h in p_map and props[p_map[h]] == "無相關文獻數據":
+                            if h in p_map:
+                                target = p_map[h]
+                                if props[target] != "無相關文獻數據": continue
                                 for info in prop.get("Information", []):
                                     v_list = info.get("Value", {}).get("StringWithMarkup", [])
-                                    if v_list: props[p_map[h]] = v_list[0].get("String"); break
+                                    v_str = v_list[0].get("String") if v_list else None
+                                    if v_str:
+                                        if target == "外觀與性狀": props[target] = simplify_physical_state(v_str); break
+                                        elif target in ["熔點", "沸點", "閃點"]:
+                                            temp = standardize_temperature(v_str)
+                                            if temp: props[target] = temp; break
+                                        else: props[target] = v_str; break
             elif sec.get("TOCHeading") == "Safety and Hazards":
                 for subsec in sec.get("Section", []):
                     if subsec.get("TOCHeading") == "Hazards Identification":
@@ -96,69 +160,81 @@ def fetch_sds_and_properties(cid, english_name):
                                         props["危險信號詞"] = "危險 (Danger)" if "Danger" in raw_s else ("警告 (Warning)" if "Warning" in raw_s else raw_s)
                                     elif info.get("Name") == "GHS Hazard Statements":
                                         raw_h = [h["String"] for h in info["Value"]["StringWithMarkup"]]
-                                        if not any("not classified" in h.lower() for h in raw_h):
-                                            props["危害警告"] = raw_h[:5]
+                                        if any("not classified" in h.lower() for h in raw_h):
+                                            props["危險信號詞"] = "無標示 / 安全"
+                                            props["危害警告"] = []
+                                        else:
+                                            try: props["危害警告"] = [GoogleTranslator(source='auto', target='zh-TW').translate(h) for h in raw_h[:5]]
+                                            except: props["危害警告"] = raw_h[:5]
     except: pass
-    if local_data:
+
+    # 無痕混合機制
+    if is_local:
         for k in props.keys():
-            if props[k] in ["無相關文獻數據", "無資料", "無", None] and k in local_data: props[k] = local_data[k]
+            if props[k] in ["無相關文獻數據", "無資料", "無", None] and k in local_data:
+                props[k] = local_data[k]
+                
     return props
 
-@st.cache_data(show_spinner=False)
-def fetch_compound_data(query_name):
+def run_search(query_name):
     english_name = query_name
     if contains_chinese(query_name) or query_name in LOCAL_CHEM_DICT:
         if query_name in LOCAL_CHEM_DICT: english_name = LOCAL_CHEM_DICT[query_name]
         else:
-            try:
-                url = f"https://zh.wikipedia.org/w/api.php?action=query&prop=langlinks&titles={query_name}&lllang=en&format=json"
-                res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=5).json()
-                for _, p_info in res.get("query", {}).get("pages", {}).items():
-                    if "langlinks" in p_info: english_name = p_info["langlinks"][0]["*"]
-            except: pass
+            wiki_name = translate_via_wikipedia(query_name)
+            if wiki_name: english_name = wiki_name
+            else:
+                try: english_name = GoogleTranslator(source='auto', target='en').translate(query_name)
+                except: return False, "翻譯服務暫時不可用"
 
     std_compounds = pcp.get_compounds(english_name, 'name')
-    if not std_compounds: return None, f"⚠️ 資料庫無法配對「{english_name}」"
+    if not std_compounds: return False, f"⚠️ 資料庫無法配對「{english_name}」"
     
     c_std = std_compounds[0]
     cid = c_std.cid
+
     c_3d_list = pcp.get_compounds(cid, record_type='3d')
     c_3d = c_3d_list[0] if c_3d_list else None
     
-    real_coords, elements, bonds_info = {}, {}, []
+    real_coords = {}
     if c_3d:
         for atom in c_3d.atoms:
             if hasattr(atom, 'x') and atom.x is not None:
                 real_coords[atom.aid] = [atom.x, atom.y, atom.z]
-                elements[atom.aid] = atom.element
-        for bond in c_3d.bonds:
-            bonds_info.append({'u': bond.aid1, 'v': bond.aid2, 'order': bond.order})
-    else:
-        for atom in c_std.atoms: elements[atom.aid] = atom.element
-        for bond in c_std.bonds: bonds_info.append({'u': bond.aid1, 'v': bond.aid2, 'order': bond.order})
+    
+    dim_type = "3D 立體" if len(real_coords) > 0 else "2D 平面"
+    
+    mw = c_std.molecular_weight
+    tpsa = c_std.tpsa
+    hbd = c_std.h_bond_donor_count
+    hba = c_std.h_bond_acceptor_count
+    smiles = c_std.isomeric_smiles or c_std.canonical_smiles
 
-    return {
-        "english_name": english_name.capitalize(), "cid": cid, "fixed_formula": fix_chemical_formula(c_std.molecular_formula),
-        "molecular_weight": f"{c_std.molecular_weight} " if c_std.molecular_weight else "無資料",
-        "tpsa": f"{c_std.tpsa} " if c_std.tpsa else "無資料",
-        "sds_data": fetch_sds_and_properties(cid, english_name),
-        "dim_type": "3D 立體" if real_coords else "2D 平面",
-        "atoms": [atom.aid for atom in (c_3d.atoms if c_3d and real_coords else c_std.atoms)],
-        "coords": real_coords, "elements": elements, "bonds_info": bonds_info
-    }, "Success"
+    sds_props = fetch_sds_and_properties(cid, english_name)
 
-def run_search(query_name):
-    data, msg = fetch_compound_data(query_name)
-    if not data: return False, msg
-
-    st.session_state.search_data = data
-    st.session_state.mol_atoms = data["atoms"]
-    st.session_state.mol_coords = data["coords"]
-    st.session_state.mol_name = data["english_name"]
-    st.session_state.atom_elements = data["elements"]
-    st.session_state.mol_bonds_info = data["bonds_info"]
-    st.session_state.mol_bonds = [(b['u'], b['v']) for b in data["bonds_info"]]
-
+    st.session_state.search_data = {
+        "english_name": english_name.capitalize(),
+        "cid": cid,
+        "fixed_formula": fix_chemical_formula(c_std.molecular_formula),
+        "molecular_weight": f"{mw} " if mw is not None else "無資料",
+        "tpsa": f"{tpsa} " if tpsa is not None else "無資料",
+        "h_bond_donor_count": hbd if hbd is not None else "無",
+        "h_bond_acceptor_count": hba if hba is not None else "無",
+        "isomeric_smiles": smiles if smiles is not None else "無資料",
+        "sds_data": sds_props,
+        "dim_type": dim_type
+    }
+    
+    sim_source = c_3d if (c_3d and real_coords) else c_std
+    st.session_state.mol_atoms = [atom.aid for atom in sim_source.atoms]
+    st.session_state.mol_bonds = [(bond.aid1, bond.aid2) for bond in sim_source.bonds]
+    st.session_state.mol_coords = real_coords
+    st.session_state.mol_name = english_name.capitalize()
+    
+    # 為物理引擎保存的變數
+    st.session_state.atom_elements = {atom.aid: atom.element for atom in sim_source.atoms}
+    st.session_state.mol_bonds_info = [{'u': bond.aid1, 'v': bond.aid2, 'order': bond.order} for bond in sim_source.bonds]
+    
     degree = {}
     for a, b in st.session_state.mol_bonds:
         degree[a] = degree.get(a, 0) + 1; degree[b] = degree.get(b, 0) + 1
@@ -180,7 +256,7 @@ if 'initialized' not in st.session_state:
 # --- 側邊欄參數配置面板 ---
 with st.sidebar:
     st.header("⚙️ 控制面板")
-    user_input = st.text_input("輸入化學名稱 (支援中英混查)", "阿斯匹靈").strip()
+    user_input = st.text_input("輸入化學名稱 (中文/英文)", "水").strip()
     style = st.selectbox("3D 渲染風格", ["stick", "sphere", "line", "cross"])
     search_button = st.button("🔍 檢索數據 (啟動快取防禦)", type="primary")
     
@@ -202,16 +278,19 @@ with st.sidebar:
     anim_speed = st.slider("動畫幀率延遲 (ms)", 10, 200, 40, step=10)
 
 if search_button and user_input:
-    with st.spinner("🧠 大數據與物理權重同步運算中..."):
+    with st.spinner("🧠 雙軌大數據同步擷取中..."):
         success, msg = run_search(user_input)
         if not success: st.error(msg)
 
 # --- 前端雙分頁系統 ---
-tab1, tab2 = st.tabs(["🧬 系統百科與安全文獻", "🔥 3D 物理引擎與洞察儀表板"])
+tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 網格分離式動畫儀表板"])
 
+# ==========================================
+# 你的原始 Tab 1 介面 (100% 完整還原)
+# ==========================================
 with tab1:
     sd = st.session_state.search_data
-    st.success(f"✅ 成功載入物質：「**{sd['english_name']}**」 | 系統已解析 **{len(st.session_state.mol_atoms)}** 顆原子並建立物理拓樸。")
+    st.success(f"✅ 當前載入物質：「**{sd['english_name']}**」 | 系統已成功解析全數 **{len(st.session_state.mol_atoms)}** 顆真實原子。")
     c1, c2 = st.columns([1, 1.2])
     with c1:
         st.subheader("⚛️ 空間立體結構")
@@ -224,21 +303,41 @@ with tab1:
                 view.setBackgroundColor('#f0f2f6') 
                 view.zoomTo()
                 components.html(view._make_html().replace("http://", "https://"), height=300)
-            else: st.image(f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{sd['cid']}/PNG?image_size=large", use_container_width=True)
-        except: st.image(f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{sd['cid']}/PNG?image_size=large", use_container_width=True)
+            else:
+                st.warning("⚠️ 查無官方 3D 模型，系統已降級為 2D 結構圖。")
+                st.image(f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{sd['cid']}/PNG?image_size=large", use_container_width=True)
+        except: 
+            st.image(f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{sd['cid']}/PNG?image_size=large", use_container_width=True)
+        
         st.markdown("---")
-        st.markdown(f"**化學式:** `{sd['fixed_formula']}` | **分子量:** `{sd['molecular_weight']}g/mol`")
+        st.subheader("🧮 計算結構屬性")
+        st.markdown(f"""
+        * **慣用化學式:** `{sd['fixed_formula']}`
+        * **真實分子量:** `{sd['molecular_weight']}g/mol`
+        * **TPSA (極性表面積):** `{sd['tpsa']}Å²`
+        * **氫鍵 (供體/受體):** `{sd['h_bond_donor_count']} / {sd['h_bond_acceptor_count']}`
+        * **SMILES 結構式:** `{sd['isomeric_smiles']}`
+        """)
         
     with c2:
-        st.subheader("⚠️ 安全文獻實測數據")
+        st.subheader("⚠️ SDS 物質安全與危害標示 (GHS)")
         sds = sd['sds_data']
         if sds['危險信號詞'] != "無標示 / 安全": st.error(f"🚨 **警示語: {sds['危險信號詞']}**")
         else: st.success(f"✅ **警示語: 無特殊危險標示**")
-        st.markdown(f"| 屬性類別 | 文獻實測數據 |\n| :--- | :--- |\n| 🧊 **密度** | {sds['密度']} |\n| ♨️ **沸點** | {sds['沸點']} |\n| ❄️ **熔點** | {sds['熔點']} |\n| 🔥 **閃點** | {sds['閃點']} |\n| 💧 **溶解度** | {sds['溶解度']} |")
+            
+        if sds['危害警告']:
+            for h in sds['危害警告']: st.caption(f"▪️ {h}")
+        st.markdown("---")
+        st.subheader("🌡️ 實驗室文獻實測數據")
+        st.markdown(f"| 屬性類別 | 文獻實測數據 (包含單位) |\n| :--- | :--- |\n| 🧊 **密度 (Density)** | {sds['密度']} |\n| ♨️ **沸點 (Boiling Point)** | {sds['沸點']} |\n| ❄️ **熔點 (Melting Point)** | {sds['熔點']} |\n| 🔥 **閃點 (Flash Point)** | {sds['閃點']} |\n| 💧 **溶解度 (Solubility)** | {sds['溶解度']} |\n| ☁️ **蒸氣壓 (Vapor Pressure)** | {sds['蒸氣壓']} |\n| 👁️ **外觀與性狀** | {sds['外觀與性狀']} |")
 
+# ==========================================
+# Tab 2：極速物理運算引擎與含標籤的 3D 渲染
+# ==========================================
 with tab2:
     if st.session_state.search_data['dim_type'] == "2D 平面":
-        st.warning("⚠️ 此物質缺乏 3D 空間座標，物理引擎無法啟動。請檢索具備立體座標之分子 (如阿斯匹靈)。")
+        st.warning("⚠️ 系統安全攔截：偵測到當前物質僅具備 2D 平面結構數據，已自動阻斷 3D 熱傳導模擬。")
+        st.info("請在左側重新檢索具備立體座標的分子（例如：**水**、**阿斯匹靈**、**咖啡酸**、**苯**），即可解鎖流暢的 3D 動態模擬！")
     else:
         st.subheader(f"📊 {st.session_state.mol_name} - 物理模擬與科學洞察")
         
@@ -246,7 +345,7 @@ with tab2:
         for aid in st.session_state.mol_atoms:
             elem = st.session_state.atom_elements.get(aid, "C")
             data = ATOMIC_DATA.get(elem, ATOMIC_DATA["default"])
-            # 🚀 視覺優化：放大 1.8 倍，讓字體有足夠空間，完美呈現立體感
+            # 放大的原子半徑
             radii_list.append(data["radius"] * 1.8) 
             mass_list.append(data["mass"])
             element_texts.append(elem)
@@ -262,9 +361,7 @@ with tab2:
             with st.spinner("⚡ 系統正在進行超高速矩陣解算與蒙地卡羅模擬..."):
                 times = np.linspace(0, sim_duration, 100)
                 
-                # ==========================================
-                # 🚀 引擎 1：巨觀 FDM (極速矩陣乘法優化)
-                # ==========================================
+                # 引擎 1：巨觀 FDM (極速矩陣乘法優化)
                 if "巨觀" in sim_model:
                     G = nx.Graph()
                     G.add_nodes_from(st.session_state.mol_atoms)
@@ -273,7 +370,6 @@ with tab2:
                     norm_mass = np.array(mass_list) / np.mean(mass_list)
                     Minv_L = np.diag(1.0 / norm_mass).dot(L)
                     
-                    # 🚀 O(1) 矩陣指數優化法：只計算一次單步轉移矩陣，後續用向量乘法，速度提升 50 倍
                     dt = times[1] - times[0] if len(times) > 1 else 0
                     step_matrix = expm(-k_val * dt * 100.0 * Minv_L)
                     
@@ -286,9 +382,7 @@ with tab2:
                         
                     val_name, val_unit, val_cmin, val_cmax = "巨觀溫度", "°C", env_temp - 5, init_temp + 5
                 
-                # ==========================================
-                # 🚀 引擎 2：微觀聲子躍遷 (原生 Tuple 極速優化)
-                # ==========================================
+                # 引擎 2：微觀聲子躍遷 (原生 Tuple 極速優化)
                 else:
                     kB_meV = 0.08617 
                     E_env_meV = kB_meV * (env_temp + 273.15)
@@ -305,7 +399,6 @@ with tab2:
                             adj_list[u].append(v)
                             adj_list[v].append(u)
                             
-                    # 🚀 Tuple 快取優化：取代複雜陣列操作，極限壓榨 Python 底層效能
                     adj_tuple = {k: tuple(v) for k, v in adj_list.items()}
                         
                     history, jumps_per_frame = [], int(k_val * 60) + 1 
@@ -315,18 +408,16 @@ with tab2:
                         E_arr = np.array([E_env_meV + counts[n] * energy_per_phonon for i, n in enumerate(st.session_state.mol_atoms)])
                         history.append(E_arr)
                         
-                        # 🚀 使用原生 random.choice 取代 numpy，消滅 Overhead
                         for _ in range(jumps_per_frame):
                             phonons = [random.choice(adj_tuple[p]) for p in phonons]
                             
                     val_name, val_unit, val_cmin, val_cmax = "分子內能", "meV", E_env_meV, E_core_meV 
 
-                # ==========================================
-                # 生成實驗洞察與 HTML
-                # ==========================================
+                # 提取圖表與動畫用的核心及邊緣節點歷史數據
                 c_hist = [h[st.session_state.mol_atoms.index(st.session_state.core_node)] for h in history]
                 e_hist = [h[st.session_state.mol_atoms.index(st.session_state.edge_node)] for h in history]
                 
+                # 報告區
                 st.markdown("### 📝 科學洞察報告 (AI Insights)")
                 i1, i2, i3, i4 = st.columns(4)
                 i1.metric("⚛️ 參與傳導總原子數", f"{len(st.session_state.mol_atoms)} 顆")
@@ -334,6 +425,7 @@ with tab2:
                 i3.metric("⚖️ 系統平均原子量", f"{np.mean(mass_list):.1f} amu")
                 i4.metric("⏱️ 達平衡殘餘差值", f"{abs(c_hist[-1] - e_hist[-1]):.2f} {val_unit}")
 
+                # 3D繪圖與動畫渲染
                 fig3d = go.Figure()
                 p3d = st.session_state.mol_coords
                 for b in st.session_state.mol_bonds:
@@ -345,7 +437,7 @@ with tab2:
                 fig3d.add_trace(go.Scatter3d(
                     x=[p3d[i][0] for i in st.session_state.mol_atoms], y=[p3d[i][1] for i in st.session_state.mol_atoms], z=[p3d[i][2] for i in st.session_state.mol_atoms], 
                     mode='markers+text', text=element_texts, hovertext=init_hover_labels, hoverinfo='text', textposition='middle center',
-                    textfont=dict(color='white', size=16, family="Arial Black"), # 🚀 字型優化
+                    textfont=dict(color='white', size=16, family="Arial Black"), 
                     showlegend=False,
                     marker=dict(size=radii_list, color=init_h, colorscale='Turbo', cmin=val_cmin, cmax=val_cmax, colorbar=dict(title=f"{val_name}", thickness=10, x=-0.05))
                 ))
