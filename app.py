@@ -32,32 +32,13 @@ LOCAL_CHEM_DICT = {
     "明礬": "Potassium aluminium sulfate", "碘化鎂": "Magnesium iodide"
 }
 
-# 🚀 完整擴充核心數據庫：將核心共價分子與無機鹽數據硬編碼鎖定
 LOCAL_DATABASE = {
-    "Water": {
-        "外觀與性狀": "無色無味透明液體", "密度": "1.00 g/cm³", "熔點": "0.0 °C", "沸點": "100.0 °C",
-        "閃點": "無相關文獻數據 (不可燃)", "溶解度": "與多數極性溶劑完全互溶", "蒸氣壓": "17.5 mmHg (20 °C)"
-    },
-    "Magnesium iodide": {
-        "外觀與性狀": "白色結晶性粉末，極易潮解", "密度": "4.48 g/cm³", "熔點": "637.0 °C", "沸點": "無相關文獻數據 (加熱時分解)",
-        "閃點": "無相關文獻數據", "溶解度": "極易溶於水 (140 g/100 mL, 20 °C)，溶於乙醇", "蒸氣壓": "無相關文獻數據"
-    },
-    "Aspirin": {
-        "外觀與性狀": "白色結晶或結晶性粉末", "密度": "1.40 g/cm³", "熔點": "135.0 °C", "沸點": "140.0 °C (分解)",
-        "閃點": "250.0 °C", "溶解度": "微溶於水，易溶於乙醇、乙醚", "蒸氣壓": "0.000041 mmHg (25 °C)"
-    },
-    "Acetaminophen": {
-        "外觀與性狀": "白色結晶性粉末", "密度": "1.26 g/cm³", "熔點": "169.0 °C", "沸點": "> 500.0 °C",
-        "閃點": "無相關文獻數據", "溶解度": "溶於熱水、乙醇", "蒸氣壓": "0.000049 mmHg (25 °C)"
-    },
-    "Potassium aluminium sulfate": {
-        "外觀與性狀": "無色透明結晶或白色結晶性粉末，無臭", "密度": "1.757 g/cm³", "熔點": "92.5 °C", "沸點": "200.0 °C (失去結晶水分解)",
-        "閃點": "無相關文獻數據", "溶解度": "易溶於水 (14.0 g/100 mL, 20 °C)，不溶於乙醇", "蒸氣壓": "無相關文獻數據"
-    },
-    "Sodium chloride": {
-        "外觀與性狀": "白色結晶性粉末或立方晶體", "密度": "2.165 g/cm³", "熔點": "801.0 °C", "沸點": "1413.0 °C",
-        "閃點": "無相關文獻數據", "溶解度": "易溶於水 (36.0 g/100 mL, 20 °C)", "蒸氣壓": "1 mmHg (865 °C)"
-    }
+    "Water": {"外觀與性狀": "無色無味透明液體", "密度": "1.00 g/cm³", "熔點": "0.0 °C", "沸點": "100.0 °C", "閃點": "無相關文獻數據 (不可燃)", "溶解度": "與多數極性溶劑完全互溶", "蒸氣壓": "17.5 mmHg (20 °C)"},
+    "Magnesium iodide": {"外觀與性狀": "白色結晶性粉末，極易潮解", "密度": "4.48 g/cm³", "熔點": "637.0 °C", "沸點": "無相關文獻數據 (加熱時分解)", "閃點": "無相關文獻數據", "溶解度": "極易溶於水 (140 g/100 mL, 20 °C)，溶於乙醇", "蒸氣壓": "無相關文獻數據"},
+    "Aspirin": {"外觀與性狀": "白色結晶或結晶性粉末", "密度": "1.40 g/cm³", "熔點": "135.0 °C", "沸點": "140.0 °C (分解)", "閃點": "250.0 °C", "溶解度": "微溶於水，易溶於乙醇、乙醚", "蒸氣壓": "0.000041 mmHg (25 °C)"},
+    "Acetaminophen": {"外觀與性狀": "白色結晶性粉末", "密度": "1.26 g/cm³", "熔點": "169.0 °C", "沸點": "> 500.0 °C", "閃點": "無相關文獻數據", "溶解度": "溶於熱水、乙醇", "蒸氣壓": "0.000049 mmHg (25 °C)"},
+    "Potassium aluminium sulfate": {"外觀與性狀": "無色透明結晶或白色結晶性粉末，無臭", "密度": "1.757 g/cm³", "熔點": "92.5 °C", "沸點": "200.0 °C (失去結晶水分解)", "閃點": "無相關文獻數據", "溶解度": "易溶於水 (14.0 g/100 mL, 20 °C)，不溶於乙醇", "蒸氣壓": "無相關文獻數據"},
+    "Sodium chloride": {"外觀與性狀": "白色結晶性粉末或立方晶體", "密度": "2.165 g/cm³", "熔點": "801.0 °C", "沸點": "1413.0 °C", "閃點": "無相關文獻數據", "溶解度": "易溶於水 (36.0 g/100 mL, 20 °C)", "蒸氣壓": "1 mmHg (865 °C)"}
 }
 
 def contains_chinese(text): 
@@ -79,7 +60,7 @@ def fix_chemical_formula(formula):
     return formula
 
 # ==========================================
-# 核心二: 數據抓取與智慧正規化引擎 (主引擎)
+# 核心二: 數據抓取與智慧正規化引擎
 # ==========================================
 def simplify_physical_state(text):
     if not text or text == "無相關文獻數據": return text
@@ -102,7 +83,6 @@ def standardize_temperature(raw_str):
 
 def fetch_sds_and_properties(cid, english_name):
     props = {"外觀與性狀": "無相關文獻數據", "密度": "無相關文獻數據", "熔點": "無相關文獻數據", "沸點": "無相關文獻數據", "閃點": "無相關文獻數據", "溶解度": "無相關文獻數據", "蒸氣壓": "無相關文獻數據", "危險信號詞": "無標示 / 安全", "危害警告": []}
-    
     std_name = english_name.capitalize()
     is_local = std_name in LOCAL_DATABASE
     local_data = LOCAL_DATABASE[std_name] if is_local else {}
@@ -150,12 +130,10 @@ def fetch_sds_and_properties(cid, english_name):
                                             except: props["危害警告"] = raw_h[:5]
     except: pass
 
-    # 無痕混合機制
     if is_local:
         for k in props.keys():
             if props[k] in ["無相關文獻數據", "無資料", "無", None] and k in local_data:
                 props[k] = local_data[k]
-                
     return props
 
 # ==========================================
@@ -228,8 +206,6 @@ def run_search(query_name):
         st.session_state.core_node = st.session_state.mol_atoms[0] if st.session_state.mol_atoms else 0
         st.session_state.edge_node = st.session_state.mol_atoms[-1] if len(st.session_state.mol_atoms) > 1 else 0
 
-    st.session_state.particle_temps = {i: 25.0 for i in st.session_state.mol_atoms}
-    st.session_state.particle_temps[st.session_state.core_node] = 500.0
     return True, "Success"
 
 if 'initialized' not in st.session_state:
@@ -246,14 +222,20 @@ with st.sidebar:
     st.markdown("---")
     st.header("🧠 核心運算引擎")
     sim_model = st.selectbox("物理分析模型", [
-        "巨觀：連續體熱傳導 (FDM)", 
-        "微觀：能量封包隨機漫步 (統計力學)"
-    ], help="回應學術要求：微觀模型將模擬 10,000 顆能量粒子在化學鍵間的隨機碰撞，以此換算出巨觀溫度。")
+        "巨觀：連續體熱力學 (FDM)", 
+        "微觀：聲子躍遷傳遞 (Phonon Hopping)"
+    ], help="微觀模型將直接利用波茲曼常數，將能量轉換為 meV 進行化學鍵間的傳遞模擬。")
     
     st.markdown("---")
-    env_temp = st.slider("環境溫度設定 (°C)", -20.0, 60.0, 25.0, step=0.5)
-    init_temp = st.slider("中心點火溫度 (°C)", 50.0, 500.0, 500.0, step=10.0)
-    k_val = st.slider("熱傳導係數/微觀活躍度 (k)", 0.01, 0.50, 0.15, step=0.01)
+    # 根據不同模型，顯示不同的提示文字
+    if "微觀" in sim_model:
+        st.caption("⚛️ 初始狀態設定 (底層將自動轉換為 meV 能量)")
+    else:
+        st.caption("🌊 初始狀態設定 (連續體溫度設定)")
+        
+    env_temp = st.slider("系統環境變數 (對應 °C)", -20.0, 60.0, 25.0, step=0.5)
+    init_temp = st.slider("核心激發變數 (對應 °C)", 50.0, 500.0, 500.0, step=10.0)
+    k_val = st.slider("熱傳導率/躍遷活躍度 (k)", 0.01, 0.50, 0.15, step=0.01)
     sim_duration = st.slider("模擬總時長 (秒)", 3.0, 30.0, 10.0, step=1.0)
     anim_speed = st.slider("動畫每幀延遲 (ms)", 10, 200, 40, step=10)
 
@@ -281,50 +263,41 @@ with tab1:
                 view.zoomTo()
                 components.html(view._make_html().replace("http://", "https://"), height=300)
             else:
-                st.warning("⚠️ 查無官方 3D 模型，系統已降級為 2D 結構圖。")
+                st.warning("⚠️ 查無官方 3D 模型，降級為 2D 結構圖。")
                 st.image(f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{sd['cid']}/PNG?image_size=large", use_container_width=True)
         except: 
             st.image(f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{sd['cid']}/PNG?image_size=large", use_container_width=True)
         
         st.markdown("---")
         st.subheader("🧮 計算結構屬性")
-        st.markdown(f"""
-        * **慣用化學式:** `{sd['fixed_formula']}`
-        * **真實分子量:** `{sd['molecular_weight']}g/mol`
-        * **TPSA (極性表面積):** `{sd['tpsa']}Å²`
-        * **氫鍵 (供體/受體):** `{sd['h_bond_donor_count']} / {sd['h_bond_acceptor_count']}`
-        * **SMILES 結構式:** `{sd['isomeric_smiles']}`
-        """)
+        st.markdown(f"* **化學式:** `{sd['fixed_formula']}`\n* **分子量:** `{sd['molecular_weight']}g/mol`\n* **TPSA:** `{sd['tpsa']}Å²`\n* **氫鍵(供/受):** `{sd['h_bond_donor_count']}/{sd['h_bond_acceptor_count']}`\n* **SMILES:** `{sd['isomeric_smiles']}`")
         
     with c2:
         st.subheader("⚠️ SDS 物質安全與危害標示 (GHS)")
         sds = sd['sds_data']
         if sds['危險信號詞'] != "無標示 / 安全": st.error(f"🚨 **警示語: {sds['危險信號詞']}**")
         else: st.success(f"✅ **警示語: 無特殊危險標示**")
-            
         if sds['危害警告']:
             for h in sds['危害警告']: st.caption(f"▪️ {h}")
         st.markdown("---")
         st.subheader("🌡️ 實驗室文獻實測數據")
-        st.markdown(f"| 屬性類別 | 文獻實測數據 (包含單位) |\n| :--- | :--- |\n| 🧊 **密度 (Density)** | {sds['密度']} |\n| ♨️ **沸點 (Boiling Point)** | {sds['沸點']} |\n| ❄️ **熔點 (Melting Point)** | {sds['熔點']} |\n| 🔥 **閃點 (Flash Point)** | {sds['閃點']} |\n| 💧 **溶解度 (Solubility)** | {sds['溶解度']} |\n| ☁️ **蒸氣壓 (Vapor Pressure)** | {sds['蒸氣壓']} |\n| 👁️ **外觀與性狀** | {sds['外觀與性狀']} |")
+        st.markdown(f"| 屬性類別 | 文獻實測數據 (包含單位) |\n| :--- | :--- |\n| 🧊 **密度** | {sds['密度']} |\n| ♨️ **沸點** | {sds['沸點']} |\n| ❄️ **熔點** | {sds['熔點']} |\n| 🔥 **閃點** | {sds['閃點']} |\n| 💧 **溶解度** | {sds['溶解度']} |\n| ☁️ **蒸氣壓** | {sds['蒸氣壓']} |\n| 👁️ **外觀與性狀** | {sds['外觀與性狀']} |")
 
 with tab2:
     if sd['dim_type'] == "2D 平面":
-        st.warning("⚠️ 系統安全攔截：偵測到當前物質僅具備 2D 平面結構數據，已自動阻斷 3D 熱傳導模擬。")
-        st.info("請在左側重新檢索具備立體座標的分子（例如：**水**、**阿斯匹靈**、**咖啡酸**、**苯**），即可解鎖流暢的 3D 動態模擬！")
+        st.warning("⚠️ 當前物質僅具備 2D 數據，無法執行 3D 模擬。請檢索如：水、阿斯匹靈、苯 等立體分子。")
     else:
-        st.subheader(f"📊 {st.session_state.mol_name} - 3D 熱傳導動態模擬監控台")
+        st.subheader(f"📊 {st.session_state.mol_name} - 動態傳遞模擬監控台")
         
-        # 顯示當前使用的物理模型說明
         if "微觀" in sim_model:
-            st.info("⚛️ **目前模式：統計熱力學 (微觀)**。系統已於核心原子注入 10,000 顆能量封包，粒子將沿化學鍵隨機漫步，並以粒子密度換算出巨觀溫度。")
+            st.info("⚛️ **目前模式：聲子躍遷模型 (Phonon Hopping)**。系統已利用 $E = k_B T$ 將狀態轉換為分子內能 (meV)。正模擬量子聲子沿化學鍵的躍遷與能量傳遞。")
         else:
-            st.info("🌊 **目前模式：傅立葉熱力學 (巨觀)**。系統正利用圖拉普拉斯矩陣 (Laplacian Matrix) 求解二階偏微分方程式，計算連續介質的熱擴散。")
+            st.info("🌊 **目前模式：連續體熱力學 (FDM)**。系統正利用圖拉普拉斯矩陣 (Laplacian Matrix) 求解二階偏微分方程式，計算連續介質的溫度擴散。")
 
-        start_anim = st.button("▶️ 開始執行熱傳導模擬動畫", type="primary", use_container_width=True)
+        start_anim = st.button("▶️ 開始執行物理學模擬動畫", type="primary", use_container_width=True)
         
         if start_anim:
-            with st.spinner(f"⚡ 正在啟動 {sim_model.split('：')[0]} 引擎，計算分子熱傳導..."):
+            with st.spinner(f"⚡ 正在啟動 {sim_model.split('：')[0]} 引擎，計算物理狀態..."):
                 times = np.linspace(0, sim_duration, 100)
                 
                 # ==========================================
@@ -332,78 +305,92 @@ with tab2:
                 # ==========================================
                 if "巨觀" in sim_model:
                     G = nx.Graph()
-                    G.add_nodes_from(st.session_state.mol_atoms); G.add_edges_from(st.session_state.mol_bonds)
+                    G.add_nodes_from(st.session_state.mol_atoms)
+                    G.add_edges_from(st.session_state.mol_bonds)
                     L = nx.laplacian_matrix(G).toarray()
                     T0 = np.array([env_temp if i != st.session_state.core_node else init_temp for i in st.session_state.mol_atoms])
                     history = [expm(-k_val * t * 1.0 * L).dot(T0) for t in times]
+                    
+                    val_name = "巨觀溫度"
+                    val_unit = "°C"
+                    val_cmin = env_temp - 5
+                    val_cmax = init_temp + 5
                 
                 # ==========================================
-                # 引擎 2：微觀隨機漫步模型 (教授指定升級版)
+                # 引擎 2：微觀能量傳遞模型 (聲子躍遷 - 教授指定版)
                 # ==========================================
                 else:
-                    num_packets = 10000 # 注入一萬顆微觀能量粒子
-                    # 粒子初始位置全在核心原子
-                    particles = np.full(num_packets, st.session_state.core_node)
-                    # 每個粒子的溫度權重 = 總溫差 / 粒子數
-                    temp_scale = (init_temp - env_temp) / num_packets
+                    # 波茲曼常數 kB (單位: meV/K)
+                    kB_meV = 0.08617 
                     
-                    # 建立化學鍵的鄰接表 (加入自身，模擬熱容與滯留)
+                    # 轉換輸入的攝氏溫度為絕對溫度，再利用 E = kB * T 算出平均分子內能
+                    E_env_meV = kB_meV * (env_temp + 273.15)
+                    E_core_meV = kB_meV * (init_temp + 273.15)
+                    
+                    # 注入兩萬顆聲子來模擬「激發態多出來的能量」
+                    num_phonons = 20000 
+                    excess_energy = E_core_meV - E_env_meV
+                    energy_per_phonon = excess_energy / num_phonons
+                    
+                    phonons = np.full(num_phonons, st.session_state.core_node)
+                    
                     adj_list = {n: [n] for n in st.session_state.mol_atoms}
                     for u, v in st.session_state.mol_bonds:
                         adj_list[u].append(v)
                         adj_list[v].append(u)
                         
                     history = []
-                    # 利用 k_val 控制粒子隨機漫步的活躍程度 (步數)
-                    jumps_per_frame = int(k_val * 40) + 1 
+                    jumps_per_frame = int(k_val * 50) + 1 
                     
                     for step in range(len(times)):
-                        # 1. 統計當前每顆原子上的粒子數量
                         counts = {n: 0 for n in st.session_state.mol_atoms}
-                        for p in particles:
+                        for p in phonons:
                             counts[p] += 1
                         
-                        # 2. 微觀轉巨觀：將粒子密度轉換回溫度 T_i = T_env + (N_packets * Scale)
-                        T_arr = np.array([env_temp + counts[n] * temp_scale for n in st.session_state.mol_atoms])
-                        history.append(T_arr)
+                        # 核心物理映射：總能量 = 基礎能量 + (聲子數量 * 每顆聲子攜帶的能量)
+                        E_arr = np.array([E_env_meV + counts[n] * energy_per_phonon for n in st.session_state.mol_atoms])
+                        history.append(E_arr)
                         
-                        # 3. 隨機漫步：每顆粒子沿化學鍵隨機移動
+                        # 聲子隨機沿著化學鍵跳躍
                         for _ in range(jumps_per_frame):
-                            particles = [np.random.choice(adj_list[p]) for p in particles]
+                            phonons = [np.random.choice(adj_list[p]) for p in phonons]
+                            
+                    val_name = "分子內能"
+                    val_unit = "meV"
+                    val_cmin = E_env_meV
+                    val_cmax = E_core_meV 
                 # ==========================================
 
-                # 提取圖表與動畫用的核心及邊緣節點歷史數據
                 c_hist = [h[st.session_state.mol_atoms.index(st.session_state.core_node)] for h in history]
                 e_hist = [h[st.session_state.mol_atoms.index(st.session_state.edge_node)] for h in history]
                 
-                # ---------------- 以下所有繪圖與 HTML 程式碼完全不動 ----------------
                 fig3d = go.Figure()
                 p3d = st.session_state.mol_coords
                 for b in st.session_state.mol_bonds:
                     fig3d.add_trace(go.Scatter3d(x=[p3d[b[0]][0], p3d[b[1]][0]], y=[p3d[b[0]][1], p3d[b[1]][1]], z=[p3d[b[0]][2], p3d[b[1]][2]], mode='lines', line=dict(color='gray', width=3), hoverinfo='none', showlegend=False))
                 
                 init_h = history[0]
-                init_labels = [f"🔥 核心源<br>溫度: {init_h[st.session_state.mol_atoms.index(i)]:.1f}°C" if i == st.session_state.core_node else (f"❄️ 外圍點<br>溫度: {init_h[st.session_state.mol_atoms.index(i)]:.1f}°C" if i == st.session_state.edge_node else f"原子 {i}<br>溫度: {init_h[st.session_state.mol_atoms.index(i)]:.1f}°C") for i in st.session_state.mol_atoms]
+                init_labels = [f"🔥 核心源<br>{val_name}: {init_h[st.session_state.mol_atoms.index(i)]:.1f} {val_unit}" if i == st.session_state.core_node else (f"❄️ 外圍點<br>{val_name}: {init_h[st.session_state.mol_atoms.index(i)]:.1f} {val_unit}" if i == st.session_state.edge_node else f"原子 {i}<br>{val_name}: {init_h[st.session_state.mol_atoms.index(i)]:.1f} {val_unit}") for i in st.session_state.mol_atoms]
                 
                 fig3d.add_trace(go.Scatter3d(
                     x=[p3d[i][0] for i in st.session_state.mol_atoms], y=[p3d[i][1] for i in st.session_state.mol_atoms], z=[p3d[i][2] for i in st.session_state.mol_atoms], 
                     mode='markers', text=init_labels, hoverinfo='text', showlegend=False,
-                    marker=dict(size=22, color=init_h, colorscale='Turbo', cmin=env_temp-5, cmax=init_temp+5, colorbar=dict(title="溫度 (°C)", thickness=10, x=-0.05))
+                    marker=dict(size=22, color=init_h, colorscale='Turbo', cmin=val_cmin, cmax=val_cmax, colorbar=dict(title=f"{val_name} ({val_unit})", thickness=10, x=-0.05))
                 ))
                 
                 anim_frames = []
                 for step, h in enumerate(history):
-                    step_labels = [f"🔥 核心源<br>溫度: {h[st.session_state.mol_atoms.index(atom_id)]:.1f}°C" if atom_id == st.session_state.core_node else (f"❄️ 外圍點<br>溫度: {h[st.session_state.mol_atoms.index(atom_id)]:.1f}°C" if atom_id == st.session_state.edge_node else f"原子 {atom_id}<br>溫度: {h[st.session_state.mol_atoms.index(atom_id)]:.1f}°C") for atom_id in st.session_state.mol_atoms]
-                    anim_frames.append(go.Frame(data=[go.Scatter3d(marker=dict(color=h, cmin=env_temp-5, cmax=init_temp+5), text=step_labels)], name=f"f{step}", traces=[len(st.session_state.mol_bonds)]))
+                    step_labels = [f"🔥 核心源<br>{val_name}: {h[st.session_state.mol_atoms.index(atom_id)]:.1f} {val_unit}" if atom_id == st.session_state.core_node else (f"❄️ 外圍點<br>{val_name}: {h[st.session_state.mol_atoms.index(atom_id)]:.1f} {val_unit}" if atom_id == st.session_state.edge_node else f"原子 {atom_id}<br>{val_name}: {h[st.session_state.mol_atoms.index(atom_id)]:.1f} {val_unit}") for atom_id in st.session_state.mol_atoms]
+                    anim_frames.append(go.Frame(data=[go.Scatter3d(marker=dict(color=h, cmin=val_cmin, cmax=val_cmax), text=step_labels)], name=f"f{step}", traces=[len(st.session_state.mol_bonds)]))
                 fig3d.frames = anim_frames
 
-                fig3d.update_layout(autosize=True, height=800, title="🔥 真實 3D 空間熱擴散", template="plotly_dark", margin=dict(l=10, r=10, b=10, t=40), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False), updatemenus=[dict(type="buttons", active=-1, showactive=False, y=-0.05, x=0.5, xanchor="center", direction="left", buttons=[dict(label="▶️ 播放聯動", method="animate", args=[None, dict(frame=dict(duration=anim_speed, redraw=True), fromcurrent=True, mode="immediate", transition=dict(duration=0))]), dict(label="⏸️ 暫停", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate", transition=dict(duration=0))])])])
+                fig3d.update_layout(autosize=True, height=800, title=f"🔥 真實 3D 空間 {val_name} 擴散", template="plotly_dark", margin=dict(l=10, r=10, b=10, t=40), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False), updatemenus=[dict(type="buttons", active=-1, showactive=False, y=-0.05, x=0.5, xanchor="center", direction="left", buttons=[dict(label="▶️ 播放聯動", method="animate", args=[None, dict(frame=dict(duration=anim_speed, redraw=True), fromcurrent=True, mode="immediate", transition=dict(duration=0))]), dict(label="⏸️ 暫停", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate", transition=dict(duration=0))])])])
                 
                 fig2d = go.Figure()
-                fig2d.add_trace(go.Scatter(x=[times[0]], y=[c_hist[0]], mode='lines', name="中心點火源", line=dict(color='red', width=3)))
-                fig2d.add_trace(go.Scatter(x=[times[0]], y=[e_hist[0]], mode='lines', name="外圍測溫點", line=dict(color='blue', width=3)))
+                fig2d.add_trace(go.Scatter(x=[times[0]], y=[c_hist[0]], mode='lines', name="中心源", line=dict(color='red', width=3)))
+                fig2d.add_trace(go.Scatter(x=[times[0]], y=[e_hist[0]], mode='lines', name="外圍測量點", line=dict(color='blue', width=3)))
                 
-                fig2d.update_layout(autosize=True, height=450, title="📈 絕對精確溫度動態變化 (°C)", template="plotly_dark", margin=dict(l=70, r=20, b=60, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[env_temp-10, init_temp+20], title="溫度 (°C)"))
+                fig2d.update_layout(autosize=True, height=450, title=f"📈 {val_name} 動態變化 ({val_unit})", template="plotly_dark", margin=dict(l=70, r=20, b=60, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[val_cmin*0.9, val_cmax*1.1], title=f"{val_name} ({val_unit})"))
                 
                 html_3d = fig3d.to_html(include_plotlyjs='cdn', full_html=False, div_id='plot-3d', config={'responsive': True})
                 html_2d = fig2d.to_html(include_plotlyjs=False, full_html=False, div_id='plot-2d', config={'responsive': True})
@@ -414,7 +401,7 @@ with tab2:
                 edge_json = json.dumps(e_hist)
                 atoms_json = json.dumps(st.session_state.mol_atoms)
                 
-                table_rows = "".join([f"<tr style='border-bottom:1px solid #333;'><td style='padding:6px;'>Atom {id}</td><td style='padding:6px;'>{'🔥 核心源' if id == st.session_state.core_node else '❄️ 外部點' if id == st.session_state.edge_node else '傳導中圈'}</td><td id='temp-{i}' style='color:#00ffcc; font-weight:bold; padding:6px;'>{init_h[i]:.2f} °C</td></tr>" for i, id in enumerate(st.session_state.mol_atoms)])
+                table_rows = "".join([f"<tr style='border-bottom:1px solid #333;'><td style='padding:6px;'>Atom {id}</td><td style='padding:6px;'>{'🔥 核心源' if id == st.session_state.core_node else '❄️ 外部點' if id == st.session_state.edge_node else '傳導中圈'}</td><td id='val-{i}' style='color:#00ffcc; font-weight:bold; padding:6px;'>{init_h[i]:.1f} {val_unit}</td></tr>" for i, id in enumerate(st.session_state.mol_atoms)])
 
                 html_template = """
                 <!DOCTYPE html>
@@ -422,38 +409,11 @@ with tab2:
                 <head>
                     <style>
                         body, html { margin: 0; padding: 0; background-color: #0e1117; width: 100%; height: 100%; overflow: hidden; box-sizing: border-box; }
-                        #fs-container {
-                            display: grid;
-                            grid-template-columns: 60% 40%;
-                            grid-template-rows: 450px 350px;
-                            width: 100%;
-                            height: 800px;
-                            background: #0e1117;
-                            position: relative;
-                        }
-                        #left-pane {
-                            grid-column: 1 / 2;
-                            grid-row: 1 / 3;
-                            border-right: 2px solid #333;
-                            overflow: hidden;
-                        }
-                        #top-right-pane {
-                            grid-column: 2 / 3;
-                            grid-row: 1 / 2;
-                            border-bottom: 2px solid #333;
-                            overflow: hidden; 
-                        }
-                        #bottom-right-pane {
-                            grid-column: 2 / 3;
-                            grid-row: 2 / 3;
-                            overflow-y: auto;
-                            background: #1a1a1a;
-                            padding: 15px;
-                        }
-                        .js-plotly-plot, .plot-container {
-                            width: 100% !important;
-                            height: 100% !important;
-                        }
+                        #fs-container { display: grid; grid-template-columns: 60% 40%; grid-template-rows: 450px 350px; width: 100%; height: 800px; background: #0e1117; position: relative; }
+                        #left-pane { grid-column: 1 / 2; grid-row: 1 / 3; border-right: 2px solid #333; overflow: hidden; }
+                        #top-right-pane { grid-column: 2 / 3; grid-row: 1 / 2; border-bottom: 2px solid #333; overflow: hidden; }
+                        #bottom-right-pane { grid-column: 2 / 3; grid-row: 2 / 3; overflow-y: auto; background: #1a1a1a; padding: 15px; }
+                        .js-plotly-plot, .plot-container { width: 100% !important; height: 100% !important; }
                     </style>
                 </head>
                 <body>
@@ -467,7 +427,7 @@ with tab2:
                                     <tr style="border-bottom:2px solid #555; position:sticky; top:0; background:#222;">
                                         <th style="padding:10px;">粒子編號</th>
                                         <th style="padding:10px;">拓樸定位</th>
-                                        <th style="padding:10px;">即時溫度 (°C)</th>
+                                        <th style="padding:10px;">即時__VAL_NAME__</th>
                                     </tr>
                                 </thead>
                                 <tbody>__TABLE_ROWS__</tbody>
@@ -475,43 +435,34 @@ with tab2:
                         </div>
                     </div>
                     <script>
-                        function toggleFS() {
-                            let elem = document.documentElement;
-                            if (!document.fullscreenElement) { elem.requestFullscreen(); } 
-                            else { document.exitFullscreen(); }
-                        }
-
+                        function toggleFS() { let elem = document.documentElement; if (!document.fullscreenElement) { elem.requestFullscreen(); } else { document.exitFullscreen(); } }
                         var h_data = __HISTORY_JSON__;
                         var t_data = __TIME_JSON__;
                         var c_data = __CORE_JSON__;
                         var e_data = __EDGE_JSON__;
                         var a_list = __ATOMS_JSON__;
+                        var v_unit = "__VAL_UNIT__";
 
                         var checkExist = setInterval(function() {
                             var gd3d = document.getElementById('plot-3d');
                             var gd2d = document.getElementById('plot-2d');
                             if (gd3d && typeof gd3d.on === 'function' && gd2d && typeof Plotly !== 'undefined') {
                                 clearInterval(checkExist);
-                                
                                 gd3d.on('plotly_animatingframe', function(eventData) {
                                     var step = parseInt(eventData.name.replace('f', ''));
-                                    var temps = h_data[step];
-                                    if (temps) {
+                                    var vals = h_data[step];
+                                    if (vals) {
                                         for (var i = 0; i < a_list.length; i++) {
-                                            var cell = document.getElementById('temp-' + i);
-                                            if (cell) { cell.innerText = temps[i].toFixed(2) + ' °C'; }
+                                            var cell = document.getElementById('val-' + i);
+                                            // 不管是 °C 還是 meV，都精確顯示到小數點後一位
+                                            if (cell) { cell.innerText = vals[i].toFixed(1) + ' ' + v_unit; }
                                         }
                                     }
                                     Plotly.restyle(gd2d, {'x': [t_data.slice(0, step + 1), t_data.slice(0, step + 1)], 'y': [c_data.slice(0, step + 1), e_data.slice(0, step + 1)]}, [0, 1]);
                                 });
                             }
                         }, 200);
-
-                        window.onload = function() {
-                            setTimeout(function() {
-                                window.dispatchEvent(new Event('resize'));
-                            }, 500);
-                        };
+                        window.onload = function() { setTimeout(function() { window.dispatchEvent(new Event('resize')); }, 500); };
                     </script>
                 </body>
                 </html>
@@ -525,8 +476,8 @@ with tab2:
                     .replace("__TIME_JSON__", time_json)\
                     .replace("__CORE_JSON__", core_json)\
                     .replace("__EDGE_JSON__", edge_json)\
-                    .replace("__ATOMS_JSON__", atoms_json)
+                    .replace("__ATOMS_JSON__", atoms_json)\
+                    .replace("__VAL_NAME__", val_name)\
+                    .replace("__VAL_UNIT__", val_unit)
                     
                 components.html(custom_html, height=850)
-        else:
-            st.info("💡 請點擊上方按鈕開始執行熱傳導模擬動畫並展開數據監控台。")
