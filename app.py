@@ -245,7 +245,6 @@ def run_search(query_name):
                 try: english_name = GoogleTranslator(source='auto', target='en').translate(query_name)
                 except: return False, "翻譯服務暫時不可用"
 
-    # 💡 加入 API 斷線防護罩，攔截 PubChemHTTPError (503 Server Busy)
     try:
         std_compounds = pcp.get_compounds(english_name, 'name')
         if not std_compounds: return False, f"⚠️ 資料庫無法配對「{english_name}」"
@@ -330,262 +329,269 @@ if search_button and user_input:
 # --- 前端雙分頁系統 ---
 tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 3D 動態熱力學模擬"])
 
-# ==========================================
-# 原始 Tab 1 介面 
-# ==========================================
-with tab1:
-    sd = st.session_state.search_data
-    st.success(f"✅ 當前載入物質：「**{sd['english_name']}**」 | 成功解析 **{len(st.session_state.mol_atoms)}** 顆原子。")
-    c1, c2 = st.columns([1, 1.2])
-    with c1:
-        st.subheader("⚛️ 空間立體結構")
-        try:
-            res = requests.get(f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{sd['cid']}/record/SDF/?record_type=3d", timeout=5)
-            if res.status_code == 200:
-                view = py3Dmol.view(width=400, height=300)
-                view.addModel(res.text, "sdf")
-                view.setStyle({style: {}, 'sphere': {'radius': 0.2}})
-                view.setBackgroundColor('#f0f2f6') 
-                view.zoomTo()
-                components.html(view._make_html().replace("http://", "https://"), height=300)
-            else:
-                st.warning("⚠️ 查無官方 3D 模型，系統已降級為 2D 結構圖。")
-                st.image(f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{sd['cid']}/PNG?image_size=large", use_container_width=True)
-        except: 
-            st.image(f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{sd['cid']}/PNG?image_size=large", use_container_width=True)
-        
-        st.markdown("---")
-        st.subheader("🧮 計算結構屬性")
-        st.markdown(f"""
-        * **慣用化學式:** `{sd['fixed_formula']}`
-        * **真實分子量:** `{sd['molecular_weight']}g/mol`
-        * **TPSA (極性表面積):** `{sd['tpsa']}Å²`
-        * **氫鍵 (供體/受體):** `{sd['h_bond_donor_count']} / {sd['h_bond_acceptor_count']}`
-        * **SMILES 結構式:** `{sd['isomeric_smiles']}`
-        """)
-        
-    with c2:
-        st.subheader("⚠️ SDS 物質安全與危害標示 (GHS)")
-        sds = sd['sds_data']
-        if sds['危險信號詞'] != "無標示 / 安全": st.error(f"🚨 **警示語: {sds['危險信號詞']}**")
-        else: st.success(f"✅ **警示語: 無特殊危險標示**")
-            
-        if sds['危害警告']:
-            for h in sds['危害警告']: st.caption(f"▪️ {h}")
-        st.markdown("---")
-        st.subheader("🌡️ 實驗室文獻實測數據")
-        st.markdown(f"| 屬性類別 | 文獻實測數據 (包含單位) |\n| :--- | :--- |\n| 🧊 **密度 (Density)** | {sds['密度']} |\n| ♨️ **沸點 (Boiling Point)** | {sds['沸點']} |\n| ❄️ **熔點 (Melting Point)** | {sds['熔點']} |\n| 🔥 **閃點 (Flash Point)** | {sds['閃點']} |\n| 💧 **溶解度 (Solubility)** | {sds['溶解度']} |\n| ☁️ **蒸氣壓 (Vapor Pressure)** | {sds['蒸氣壓']} |\n| 👁️ **外觀與性狀** | {sds['外觀與性狀']} |")
-
-# ==========================================
-# Tab 2：極速物理運算引擎與客製化懸浮按鈕 (完全解決暴走 Bug 且保留版面)
-# ==========================================
-with tab2:
-    if st.session_state.search_data['dim_type'] == "2D 平面":
-        st.warning("⚠️ 系統安全攔截：偵測到當前物質僅具備 2D 平面結構數據，已自動阻斷 3D 熱傳導模擬。")
-        st.info("請在左側重新檢索具備立體座標的分子（例如：**水**、**阿斯匹靈**、**咖啡酸**、**苯**），即可解鎖流暢的 3D 動態模擬！")
-    else:
-        st.subheader(f"📊 {st.session_state.mol_name} - 模擬結果分析")
-        
-        num_atoms = len(st.session_state.mol_atoms)
-        radii_list, mass_list, element_texts = [], [], []
-        for aid in st.session_state.mol_atoms:
-            elem = st.session_state.atom_elements.get(aid, "C")
-            data = ATOMIC_DATA.get(elem, ATOMIC_DATA["default"])
-            radii_list.append(data["radius"] * 1.8) 
-            mass_list.append(data["mass"])
-            element_texts.append(elem)
-        
-        start_anim = st.button("▶️ 執行物理模擬運算", type="primary", use_container_width=True)
-        
-        if start_anim:
-            with st.spinner("⚡ 執行矩陣運算與熱力學平衡計算中..."):
-                times = np.linspace(0, sim_duration, 100)
-                
-                if "巨觀" in sim_model:
-                    G = nx.Graph()
-                    G.add_nodes_from(st.session_state.mol_atoms)
-                    for b in st.session_state.mol_bonds_info: G.add_edge(b['u'], b['v'], weight=b['order'])
-                    L = nx.laplacian_matrix(G, weight='weight').toarray()
-                    norm_mass = np.array(mass_list) / np.mean(mass_list)
-                    Minv_L = np.diag(1.0 / norm_mass).dot(L)
-                    
-                    dt = times[1] - times[0] if len(times) > 1 else 0
-                    step_matrix = expm(-k_val * dt * 100.0 * Minv_L)
-                    T_curr = np.array([env_temp if i != st.session_state.core_node else init_temp for i in st.session_state.mol_atoms])
-                    history = [T_curr]
-                    for _ in range(1, len(times)):
-                        T_curr = step_matrix.dot(T_curr)
-                        history.append(T_curr)
-                        
-                    val_name, val_unit = "巨觀溫度", "°C"
-                    eq_temp = (init_temp + env_temp * (num_atoms - 1)) / num_atoms
-                    visual_cmax = env_temp + (eq_temp - env_temp) * 2.5
-                    val_cmin = env_temp
-                    val_cmax = min(visual_cmax, init_temp) if visual_cmax > env_temp else env_temp + 5
-                
+# 💡 終極容錯鎖：確保資料存在才渲染畫面，否則跳出優雅提示
+if 'search_data' not in st.session_state:
+    with tab1:
+        st.warning("⚠️ 系統初始連線受阻或尚未載入資料。請等待數秒後，在左側控制面板重新輸入名稱並點擊「🔍 檢索物質數據」。")
+    with tab2:
+        st.info("⚠️ 請先完成物質檢索，即可解鎖 3D 動態模擬面板。")
+else:
+    # ==========================================
+    # 原始 Tab 1 介面 
+    # ==========================================
+    with tab1:
+        sd = st.session_state.search_data
+        st.success(f"✅ 當前載入物質：「**{sd['english_name']}**」 | 成功解析 **{len(st.session_state.mol_atoms)}** 顆原子。")
+        c1, c2 = st.columns([1, 1.2])
+        with c1:
+            st.subheader("⚛️ 空間立體結構")
+            try:
+                res = requests.get(f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{sd['cid']}/record/SDF/?record_type=3d", timeout=5)
+                if res.status_code == 200:
+                    view = py3Dmol.view(width=400, height=300)
+                    view.addModel(res.text, "sdf")
+                    view.setStyle({style: {}, 'sphere': {'radius': 0.2}})
+                    view.setBackgroundColor('#f0f2f6') 
+                    view.zoomTo()
+                    components.html(view._make_html().replace("http://", "https://"), height=300)
                 else:
-                    kB_meV = 0.08617 
-                    E_env_meV = kB_meV * (env_temp + 273.15)
-                    E_core_meV = kB_meV * (init_temp + 273.15)
-                    num_phonons = 20000 
-                    excess_energy = E_core_meV - E_env_meV
-                    energy_per_phonon = excess_energy / num_phonons
-                    phonons = [st.session_state.core_node] * num_phonons
+                    st.warning("⚠️ 查無官方 3D 模型，系統已降級為 2D 結構圖。")
+                    st.image(f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{sd['cid']}/PNG?image_size=large", use_container_width=True)
+            except: 
+                st.image(f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{sd['cid']}/PNG?image_size=large", use_container_width=True)
+            
+            st.markdown("---")
+            st.subheader("🧮 計算結構屬性")
+            st.markdown(f"""
+            * **慣用化學式:** `{sd['fixed_formula']}`
+            * **真實分子量:** `{sd['molecular_weight']}g/mol`
+            * **TPSA (極性表面積):** `{sd['tpsa']}Å²`
+            * **氫鍵 (供體/受體):** `{sd['h_bond_donor_count']} / {sd['h_bond_acceptor_count']}`
+            * **SMILES 結構式:** `{sd['isomeric_smiles']}`
+            """)
+            
+        with c2:
+            st.subheader("⚠️ SDS 物質安全與危害標示 (GHS)")
+            sds = sd['sds_data']
+            if sds['危險信號詞'] != "無標示 / 安全": st.error(f"🚨 **警示語: {sds['危險信號詞']}**")
+            else: st.success(f"✅ **警示語: 無特殊危險標示**")
+                
+            if sds['危害警告']:
+                for h in sds['危害警告']: st.caption(f"▪️ {h}")
+            st.markdown("---")
+            st.subheader("🌡️ 實驗室文獻實測數據")
+            st.markdown(f"| 屬性類別 | 文獻實測數據 (包含單位) |\n| :--- | :--- |\n| 🧊 **密度 (Density)** | {sds['密度']} |\n| ♨️ **沸點 (Boiling Point)** | {sds['沸點']} |\n| ❄️ **熔點 (Melting Point)** | {sds['熔點']} |\n| 🔥 **閃點 (Flash Point)** | {sds['閃點']} |\n| 💧 **溶解度 (Solubility)** | {sds['溶解度']} |\n| ☁️ **蒸氣壓 (Vapor Pressure)** | {sds['蒸氣壓']} |\n| 👁️ **外觀與性狀** | {sds['外觀與性狀']} |")
+
+    # ==========================================
+    # Tab 2：極速物理運算引擎與客製化懸浮按鈕 (完全解決暴走 Bug 且保留版面)
+    # ==========================================
+    with tab2:
+        if st.session_state.search_data['dim_type'] == "2D 平面":
+            st.warning("⚠️ 系統安全攔截：偵測到當前物質僅具備 2D 平面結構數據，已自動阻斷 3D 熱傳導模擬。")
+            st.info("請在左側重新檢索具備立體座標的分子（例如：**水**、**阿斯匹靈**、**咖啡酸**、**苯**），即可解鎖流暢的 3D 動態模擬！")
+        else:
+            st.subheader(f"📊 {st.session_state.mol_name} - 模擬結果分析")
+            
+            num_atoms = len(st.session_state.mol_atoms)
+            radii_list, mass_list, element_texts = [], [], []
+            for aid in st.session_state.mol_atoms:
+                elem = st.session_state.atom_elements.get(aid, "C")
+                data = ATOMIC_DATA.get(elem, ATOMIC_DATA["default"])
+                radii_list.append(data["radius"] * 1.8) 
+                mass_list.append(data["mass"])
+                element_texts.append(elem)
+            
+            start_anim = st.button("▶️ 執行物理模擬運算", type="primary", use_container_width=True)
+            
+            if start_anim:
+                with st.spinner("⚡ 執行矩陣運算與熱力學平衡計算中..."):
+                    times = np.linspace(0, sim_duration, 100)
                     
-                    adj_list = {n: [n] for n in st.session_state.mol_atoms}
-                    for b in st.session_state.mol_bonds_info:
-                        u, v, order = b['u'], b['v'], b['order']
-                        for _ in range(int(order * 2)): 
-                            adj_list[u].append(v)
-                            adj_list[v].append(u)
-                    adj_tuple = {k: tuple(v) for k, v in adj_list.items()}
+                    if "巨觀" in sim_model:
+                        G = nx.Graph()
+                        G.add_nodes_from(st.session_state.mol_atoms)
+                        for b in st.session_state.mol_bonds_info: G.add_edge(b['u'], b['v'], weight=b['order'])
+                        L = nx.laplacian_matrix(G, weight='weight').toarray()
+                        norm_mass = np.array(mass_list) / np.mean(mass_list)
+                        Minv_L = np.diag(1.0 / norm_mass).dot(L)
                         
-                    history, jumps_per_frame = [], int(k_val * 60) + 1 
-                    for step in range(len(times)):
-                        counts = {n: 0 for n in st.session_state.mol_atoms}
-                        for p in phonons: counts[p] += 1
-                        E_arr = np.array([E_env_meV + counts[n] * energy_per_phonon for i, n in enumerate(st.session_state.mol_atoms)])
-                        history.append(E_arr)
-                        for _ in range(jumps_per_frame):
-                            phonons = [random.choice(adj_tuple[p]) for p in phonons]
+                        dt = times[1] - times[0] if len(times) > 1 else 0
+                        step_matrix = expm(-k_val * dt * 100.0 * Minv_L)
+                        T_curr = np.array([env_temp if i != st.session_state.core_node else init_temp for i in st.session_state.mol_atoms])
+                        history = [T_curr]
+                        for _ in range(1, len(times)):
+                            T_curr = step_matrix.dot(T_curr)
+                            history.append(T_curr)
                             
-                    val_name, val_unit = "分子內能", "meV"
-                    eq_E = (E_core_meV + E_env_meV * (num_atoms - 1)) / num_atoms
-                    visual_cmax = E_env_meV + (eq_E - E_env_meV) * 2.5
-                    val_cmin = E_env_meV
-                    val_cmax = min(visual_cmax, E_core_meV) if visual_cmax > E_env_meV else E_env_meV + 1
+                        val_name, val_unit = "巨觀溫度", "°C"
+                        eq_temp = (init_temp + env_temp * (num_atoms - 1)) / num_atoms
+                        visual_cmax = env_temp + (eq_temp - env_temp) * 2.5
+                        val_cmin = env_temp
+                        val_cmax = min(visual_cmax, init_temp) if visual_cmax > env_temp else env_temp + 5
+                    
+                    else:
+                        kB_meV = 0.08617 
+                        E_env_meV = kB_meV * (env_temp + 273.15)
+                        E_core_meV = kB_meV * (init_temp + 273.15)
+                        num_phonons = 20000 
+                        excess_energy = E_core_meV - E_env_meV
+                        energy_per_phonon = excess_energy / num_phonons
+                        phonons = [st.session_state.core_node] * num_phonons
+                        
+                        adj_list = {n: [n] for n in st.session_state.mol_atoms}
+                        for b in st.session_state.mol_bonds_info:
+                            u, v, order = b['u'], b['v'], b['order']
+                            for _ in range(int(order * 2)): 
+                                adj_list[u].append(v)
+                                adj_list[v].append(u)
+                        adj_tuple = {k: tuple(v) for k, v in adj_list.items()}
+                            
+                        history, jumps_per_frame = [], int(k_val * 60) + 1 
+                        for step in range(len(times)):
+                            counts = {n: 0 for n in st.session_state.mol_atoms}
+                            for p in phonons: counts[p] += 1
+                            E_arr = np.array([E_env_meV + counts[n] * energy_per_phonon for i, n in enumerate(st.session_state.mol_atoms)])
+                            history.append(E_arr)
+                            for _ in range(jumps_per_frame):
+                                phonons = [random.choice(adj_tuple[p]) for p in phonons]
+                                
+                        val_name, val_unit = "分子內能", "meV"
+                        eq_E = (E_core_meV + E_env_meV * (num_atoms - 1)) / num_atoms
+                        visual_cmax = E_env_meV + (eq_E - E_env_meV) * 2.5
+                        val_cmin = E_env_meV
+                        val_cmax = min(visual_cmax, E_core_meV) if visual_cmax > E_env_meV else E_env_meV + 1
 
-                c_hist = [h[st.session_state.mol_atoms.index(st.session_state.core_node)] for h in history]
-                e_hist = [h[st.session_state.mol_atoms.index(st.session_state.edge_node)] for h in history]
-                
-                st.markdown("### 📝 物理模擬數據面板")
-                i1, i2, i3, i4 = st.columns(4)
-                i1.metric("⚛️ 參與傳導總原子數", f"{len(st.session_state.mol_atoms)} 顆")
-                i2.metric(f"🔥 最高核心{val_name}", f"{c_hist[0]:.1f} {val_unit}")
-                i3.metric("⚖️ 系統平均原子量", f"{np.mean(mass_list):.1f} amu")
-                i4.metric("⏱️ 達平衡殘餘差值", f"{abs(c_hist[-1] - e_hist[-1]):.2f} {val_unit}")
+                    c_hist = [h[st.session_state.mol_atoms.index(st.session_state.core_node)] for h in history]
+                    e_hist = [h[st.session_state.mol_atoms.index(st.session_state.edge_node)] for h in history]
+                    
+                    st.markdown("### 📝 物理模擬數據面板")
+                    i1, i2, i3, i4 = st.columns(4)
+                    i1.metric("⚛️ 參與傳導總原子數", f"{len(st.session_state.mol_atoms)} 顆")
+                    i2.metric(f"🔥 最高核心{val_name}", f"{c_hist[0]:.1f} {val_unit}")
+                    i3.metric("⚖️ 系統平均原子量", f"{np.mean(mass_list):.1f} amu")
+                    i4.metric("⏱️ 達平衡殘餘差值", f"{abs(c_hist[-1] - e_hist[-1]):.2f} {val_unit}")
 
-                # 3D繪圖 (拔除 Plotly 原生按鈕)
-                fig3d = go.Figure()
-                p3d = st.session_state.mol_coords
-                node_trace_idx = len(st.session_state.mol_bonds) 
-                
-                for b in st.session_state.mol_bonds:
-                    fig3d.add_trace(go.Scatter3d(x=[p3d[b[0]][0], p3d[b[1]][0]], y=[p3d[b[0]][1], p3d[b[1]][1]], z=[p3d[b[0]][2], p3d[b[1]][2]], mode='lines', line=dict(color='gray', width=3), hoverinfo='none', showlegend=False))
-                
-                init_h = history[0]
-                fig3d.add_trace(go.Scatter3d(
-                    x=[p3d[i][0] for i in st.session_state.mol_atoms], y=[p3d[i][1] for i in st.session_state.mol_atoms], z=[p3d[i][2] for i in st.session_state.mol_atoms], 
-                    mode='markers+text', text=element_texts, hoverinfo='text', textposition='middle center',
-                    textfont=dict(color='white', size=16, family="Arial Black"), showlegend=False,
-                    marker=dict(size=radii_list, color=init_h, colorscale='Turbo', cmin=val_cmin, cmax=val_cmax, colorbar=dict(title=f"{val_name}<br>(高於 {val_cmax:.1f} 呈現極值紅)", thickness=10, x=-0.05))
-                ))
-                
-                # 💡 這裡【不設定】updatemenus，我們靠自製的懸浮按鈕驅動
-                fig3d.update_layout(autosize=True, height=800, title=f"🔥 3D {val_name} 動態分佈圖", template="plotly_dark", margin=dict(l=10, r=10, b=10, t=50), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False))
-                
-                fig2d = go.Figure()
-                fig2d.add_trace(go.Scatter(x=[times[0]], y=[c_hist[0]], mode='lines', name="中心源", line=dict(color='red', width=3)))
-                fig2d.add_trace(go.Scatter(x=[times[0]], y=[e_hist[0]], mode='lines', name="邊緣測量點", line=dict(color='blue', width=3)))
-                fig2d.update_layout(autosize=True, height=450, title=f"📈 {val_name} 動態變化", template="plotly_dark", margin=dict(l=70, r=20, b=60, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[val_cmin*0.9, (init_temp if "巨觀" in sim_model else E_core_meV)*1.1], title=f"{val_name} ({val_unit})"))
-                
-                html_3d = fig3d.to_html(include_plotlyjs='cdn', full_html=False, div_id='plot-3d', config={'responsive': True})
-                html_2d = fig2d.to_html(include_plotlyjs=False, full_html=False, div_id='plot-2d', config={'responsive': True})
-                
-                history_json, time_json, core_json, edge_json = json.dumps([h.tolist() for h in history]), json.dumps(times.tolist()), json.dumps(c_hist), json.dumps(e_hist)
-                atoms_json, elem_json = json.dumps(st.session_state.mol_atoms), json.dumps(element_texts)
-                
-                table_rows = "".join([f"<tr style='border-bottom:1px solid #333;'><td style='padding:6px;'>{element_texts[i]} ({id})</td><td style='padding:6px;'>{'🔥 核心源' if id == st.session_state.core_node else '❄️ 外部點' if id == st.session_state.edge_node else '傳導中圈'}</td><td id='val-{i}' style='color:#00ffcc; font-weight:bold; padding:6px;'>{init_h[i]:.1f} {val_unit}</td></tr>" for i, id in enumerate(st.session_state.mol_atoms)])
+                    # 3D繪圖 (拔除 Plotly 原生按鈕)
+                    fig3d = go.Figure()
+                    p3d = st.session_state.mol_coords
+                    node_trace_idx = len(st.session_state.mol_bonds) 
+                    
+                    for b in st.session_state.mol_bonds:
+                        fig3d.add_trace(go.Scatter3d(x=[p3d[b[0]][0], p3d[b[1]][0]], y=[p3d[b[0]][1], p3d[b[1]][1]], z=[p3d[b[0]][2], p3d[b[1]][2]], mode='lines', line=dict(color='gray', width=3), hoverinfo='none', showlegend=False))
+                    
+                    init_h = history[0]
+                    fig3d.add_trace(go.Scatter3d(
+                        x=[p3d[i][0] for i in st.session_state.mol_atoms], y=[p3d[i][1] for i in st.session_state.mol_atoms], z=[p3d[i][2] for i in st.session_state.mol_atoms], 
+                        mode='markers+text', text=element_texts, hoverinfo='text', textposition='middle center',
+                        textfont=dict(color='white', size=16, family="Arial Black"), showlegend=False,
+                        marker=dict(size=radii_list, color=init_h, colorscale='Turbo', cmin=val_cmin, cmax=val_cmax, colorbar=dict(title=f"{val_name}<br>(高於 {val_cmax:.1f} 呈現極值紅)", thickness=10, x=-0.05))
+                    ))
+                    
+                    # 💡 這裡【不設定】updatemenus，我們靠自製的懸浮按鈕驅動
+                    fig3d.update_layout(autosize=True, height=800, title=f"🔥 3D {val_name} 動態分佈圖", template="plotly_dark", margin=dict(l=10, r=10, b=10, t=50), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False))
+                    
+                    fig2d = go.Figure()
+                    fig2d.add_trace(go.Scatter(x=[times[0]], y=[c_hist[0]], mode='lines', name="中心源", line=dict(color='red', width=3)))
+                    fig2d.add_trace(go.Scatter(x=[times[0]], y=[e_hist[0]], mode='lines', name="邊緣測量點", line=dict(color='blue', width=3)))
+                    fig2d.update_layout(autosize=True, height=450, title=f"📈 {val_name} 動態變化", template="plotly_dark", margin=dict(l=70, r=20, b=60, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[val_cmin*0.9, (init_temp if "巨觀" in sim_model else E_core_meV)*1.1], title=f"{val_name} ({val_unit})"))
+                    
+                    html_3d = fig3d.to_html(include_plotlyjs='cdn', full_html=False, div_id='plot-3d', config={'responsive': True})
+                    html_2d = fig2d.to_html(include_plotlyjs=False, full_html=False, div_id='plot-2d', config={'responsive': True})
+                    
+                    history_json, time_json, core_json, edge_json = json.dumps([h.tolist() for h in history]), json.dumps(times.tolist()), json.dumps(c_hist), json.dumps(e_hist)
+                    atoms_json, elem_json = json.dumps(st.session_state.mol_atoms), json.dumps(element_texts)
+                    
+                    table_rows = "".join([f"<tr style='border-bottom:1px solid #333;'><td style='padding:6px;'>{element_texts[i]} ({id})</td><td style='padding:6px;'>{'🔥 核心源' if id == st.session_state.core_node else '❄️ 外部點' if id == st.session_state.edge_node else '傳導中圈'}</td><td id='val-{i}' style='color:#00ffcc; font-weight:bold; padding:6px;'>{init_h[i]:.1f} {val_unit}</td></tr>" for i, id in enumerate(st.session_state.mol_atoms)])
 
-                # 💡 視覺欺騙術：把客製化按鈕定在圖表正下方 (模仿原生 Plotly 的版面)
-                html_template = """
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <style>
-                        body, html { margin: 0; padding: 0; background-color: #0e1117; width: 100%; height: 100%; overflow: hidden; box-sizing: border-box; }
-                        #fs-container { display: grid; grid-template-columns: 60% 40%; grid-template-rows: 450px 350px; width: 100%; height: 800px; background: #0e1117; position: relative; }
-                        #left-pane { grid-column: 1 / 2; grid-row: 1 / 3; border-right: 2px solid #333; position: relative; overflow: hidden; }
-                        #top-right-pane { grid-column: 2 / 3; grid-row: 1 / 2; border-bottom: 2px solid #333; overflow: hidden; }
-                        #bottom-right-pane { grid-column: 2 / 3; grid-row: 2 / 3; overflow-y: auto; background: #1a1a1a; padding: 15px; }
-                        .js-plotly-plot, .plot-container { width: 100% !important; height: 100% !important; }
-                        .hover-btn:hover { background: rgba(255,255,255,0.1) !important; }
-                    </style>
-                </head>
-                <body>
-                    <button style="position:absolute; top:10px; right:20px; z-index:9999; background:rgba(255,255,255,0.1); color:#fff; border:1px solid rgba(255,255,255,0.4); padding:6px 12px; border-radius:4px; cursor:pointer;" onclick="toggleFS()">⤢ 全螢幕</button>
-                    <div id="fs-container">
-                        <div id="left-pane"> 
-                            __HTML_3D__ 
-                            <div style="position: absolute; bottom: 15px; left: 0; width: 100%; display: flex; justify-content: center; z-index: 9999; pointer-events: none;">
-                                <div style="background: rgba(30,30,30,0.9); border: 1px solid #555; border-radius: 4px; display: flex; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: auto;">
-                                    <button class="hover-btn" onclick="playAnim()" style="background: transparent; color: white; border: none; padding: 6px 15px; cursor: pointer; border-right: 1px solid #555; font-family: sans-serif; font-size: 13px;">▶️ 播放動畫</button>
-                                    <button class="hover-btn" onclick="pauseAnim()" style="background: transparent; color: white; border: none; padding: 6px 15px; cursor: pointer; font-family: sans-serif; font-size: 13px;">⏸️ 暫停</button>
+                    # 💡 視覺欺騙術：把客製化按鈕定在圖表正下方 (模仿原生 Plotly 的版面)
+                    html_template = """
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <style>
+                            body, html { margin: 0; padding: 0; background-color: #0e1117; width: 100%; height: 100%; overflow: hidden; box-sizing: border-box; }
+                            #fs-container { display: grid; grid-template-columns: 60% 40%; grid-template-rows: 450px 350px; width: 100%; height: 800px; background: #0e1117; position: relative; }
+                            #left-pane { grid-column: 1 / 2; grid-row: 1 / 3; border-right: 2px solid #333; position: relative; overflow: hidden; }
+                            #top-right-pane { grid-column: 2 / 3; grid-row: 1 / 2; border-bottom: 2px solid #333; overflow: hidden; }
+                            #bottom-right-pane { grid-column: 2 / 3; grid-row: 2 / 3; overflow-y: auto; background: #1a1a1a; padding: 15px; }
+                            .js-plotly-plot, .plot-container { width: 100% !important; height: 100% !important; }
+                            .hover-btn:hover { background: rgba(255,255,255,0.1) !important; }
+                        </style>
+                    </head>
+                    <body>
+                        <button style="position:absolute; top:10px; right:20px; z-index:9999; background:rgba(255,255,255,0.1); color:#fff; border:1px solid rgba(255,255,255,0.4); padding:6px 12px; border-radius:4px; cursor:pointer;" onclick="toggleFS()">⤢ 全螢幕</button>
+                        <div id="fs-container">
+                            <div id="left-pane"> 
+                                __HTML_3D__ 
+                                <div style="position: absolute; bottom: 15px; left: 0; width: 100%; display: flex; justify-content: center; z-index: 9999; pointer-events: none;">
+                                    <div style="background: rgba(30,30,30,0.9); border: 1px solid #555; border-radius: 4px; display: flex; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: auto;">
+                                        <button class="hover-btn" onclick="playAnim()" style="background: transparent; color: white; border: none; padding: 6px 15px; cursor: pointer; border-right: 1px solid #555; font-family: sans-serif; font-size: 13px;">▶️ 播放動畫</button>
+                                        <button class="hover-btn" onclick="pauseAnim()" style="background: transparent; color: white; border: none; padding: 6px 15px; cursor: pointer; font-family: sans-serif; font-size: 13px;">⏸️ 暫停</button>
+                                    </div>
                                 </div>
                             </div>
+                            <div id="top-right-pane"> __HTML_2D__ </div>
+                            <div id="bottom-right-pane">
+                                <table style="width:100%; border-collapse:collapse; text-align:center; color:white; font-family:sans-serif;">
+                                    <thead>
+                                        <tr style="border-bottom:2px solid #555; position:sticky; top:0; background:#222;">
+                                            <th style="padding:10px;">原子 (編號)</th>
+                                            <th style="padding:10px;">拓樸定位</th>
+                                            <th style="padding:10px;">即時__VAL_NAME__</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>__TABLE_ROWS__</tbody>
+                                </table>
+                            </div>
                         </div>
-                        <div id="top-right-pane"> __HTML_2D__ </div>
-                        <div id="bottom-right-pane">
-                            <table style="width:100%; border-collapse:collapse; text-align:center; color:white; font-family:sans-serif;">
-                                <thead>
-                                    <tr style="border-bottom:2px solid #555; position:sticky; top:0; background:#222;">
-                                        <th style="padding:10px;">原子 (編號)</th>
-                                        <th style="padding:10px;">拓樸定位</th>
-                                        <th style="padding:10px;">即時__VAL_NAME__</th>
-                                    </tr>
-                                </thead>
-                                <tbody>__TABLE_ROWS__</tbody>
-                            </table>
-                        </div>
-                    </div>
-                    <script>
-                        function toggleFS() { let elem = document.documentElement; if (!document.fullscreenElement) { elem.requestFullscreen(); } else { document.exitFullscreen(); } }
-                        
-                        var h_data = __HISTORY_JSON__, t_data = __TIME_JSON__, c_data = __CORE_JSON__, e_data = __EDGE_JSON__;
-                        var a_list = __ATOMS_JSON__, elem_list = __ELEM_JSON__, v_unit = "__VAL_UNIT__", v_name = "__VAL_NAME__";
-                        var anim_speed = __ANIM_SPEED__, node_trace_idx = __NODE_TRACE_IDX__;
-                        
-                        var currentStep = 0, timer = null, playing = false;
+                        <script>
+                            function toggleFS() { let elem = document.documentElement; if (!document.fullscreenElement) { elem.requestFullscreen(); } else { document.exitFullscreen(); } }
+                            
+                            var h_data = __HISTORY_JSON__, t_data = __TIME_JSON__, c_data = __CORE_JSON__, e_data = __EDGE_JSON__;
+                            var a_list = __ATOMS_JSON__, elem_list = __ELEM_JSON__, v_unit = "__VAL_UNIT__", v_name = "__VAL_NAME__";
+                            var anim_speed = __ANIM_SPEED__, node_trace_idx = __NODE_TRACE_IDX__;
+                            
+                            var currentStep = 0, timer = null, playing = false;
 
-                        function playAnim() {
-                            if (playing || typeof Plotly === 'undefined') return;
-                            playing = true;
-                            timer = setInterval(function() {
-                                currentStep++;
-                                if (currentStep >= h_data.length) currentStep = 0;
-                                updateVisuals(currentStep);
-                            }, anim_speed);
-                        }
-
-                        function pauseAnim() {
-                            playing = false;
-                            clearInterval(timer);
-                        }
-
-                        function updateVisuals(step) {
-                            var colors = h_data[step];
-                            var hovertexts = [];
-                            for (var i = 0; i < a_list.length; i++) {
-                                hovertexts.push("<b>" + elem_list[i] + "</b> (ID:" + a_list[i] + ")<br>" + v_name + ": " + colors[i].toFixed(1) + " " + v_unit);
-                                var cell = document.getElementById('val-' + i);
-                                if (cell) { cell.innerText = colors[i].toFixed(1) + ' ' + v_unit; }
+                            function playAnim() {
+                                if (playing || typeof Plotly === 'undefined') return;
+                                playing = true;
+                                timer = setInterval(function() {
+                                    currentStep++;
+                                    if (currentStep >= h_data.length) currentStep = 0;
+                                    updateVisuals(currentStep);
+                                }, anim_speed);
                             }
-                            Plotly.restyle('plot-3d', {'marker.color': [colors], 'hovertext': [hovertexts]}, [node_trace_idx]);
-                            Plotly.restyle('plot-2d', {'x': [t_data.slice(0, step + 1), t_data.slice(0, step + 1)], 'y': [c_data.slice(0, step + 1), e_data.slice(0, step + 1)]}, [0, 1]);
-                        }
-                        
-                        window.onload = function() { setTimeout(function() { window.dispatchEvent(new Event('resize')); }, 500); };
-                    </script>
-                </body>
-                </html>
-                """
-                
-                custom_html = html_template.replace("__HTML_3D__", html_3d).replace("__HTML_2D__", html_2d)\
-                    .replace("__TABLE_ROWS__", table_rows).replace("__HISTORY_JSON__", history_json)\
-                    .replace("__TIME_JSON__", time_json).replace("__CORE_JSON__", core_json)\
-                    .replace("__EDGE_JSON__", edge_json).replace("__ATOMS_JSON__", atoms_json)\
-                    .replace("__VAL_NAME__", val_name).replace("__VAL_UNIT__", val_unit)\
-                    .replace("__ELEM_JSON__", elem_json).replace("__ANIM_SPEED__", str(anim_speed))\
-                    .replace("__NODE_TRACE_IDX__", str(node_trace_idx))
+
+                            function pauseAnim() {
+                                playing = false;
+                                clearInterval(timer);
+                            }
+
+                            function updateVisuals(step) {
+                                var colors = h_data[step];
+                                var hovertexts = [];
+                                for (var i = 0; i < a_list.length; i++) {
+                                    hovertexts.push("<b>" + elem_list[i] + "</b> (ID:" + a_list[i] + ")<br>" + v_name + ": " + colors[i].toFixed(1) + " " + v_unit);
+                                    var cell = document.getElementById('val-' + i);
+                                    if (cell) { cell.innerText = colors[i].toFixed(1) + ' ' + v_unit; }
+                                }
+                                Plotly.restyle('plot-3d', {'marker.color': [colors], 'hovertext': [hovertexts]}, [node_trace_idx]);
+                                Plotly.restyle('plot-2d', {'x': [t_data.slice(0, step + 1), t_data.slice(0, step + 1)], 'y': [c_data.slice(0, step + 1), e_data.slice(0, step + 1)]}, [0, 1]);
+                            }
+                            
+                            window.onload = function() { setTimeout(function() { window.dispatchEvent(new Event('resize')); }, 500); };
+                        </script>
+                    </body>
+                    </html>
+                    """
                     
-                components.html(custom_html, height=850)
+                    custom_html = html_template.replace("__HTML_3D__", html_3d).replace("__HTML_2D__", html_2d)\
+                        .replace("__TABLE_ROWS__", table_rows).replace("__HISTORY_JSON__", history_json)\
+                        .replace("__TIME_JSON__", time_json).replace("__CORE_JSON__", core_json)\
+                        .replace("__EDGE_JSON__", edge_json).replace("__ATOMS_JSON__", atoms_json)\
+                        .replace("__VAL_NAME__", val_name).replace("__VAL_UNIT__", val_unit)\
+                        .replace("__ELEM_JSON__", elem_json).replace("__ANIM_SPEED__", str(anim_speed))\
+                        .replace("__NODE_TRACE_IDX__", str(node_trace_idx))
+                        
+                    components.html(custom_html, height=850)
