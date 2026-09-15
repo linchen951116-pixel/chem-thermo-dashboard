@@ -134,8 +134,46 @@ def fetch_sds_and_properties(cid, english_name):
                                         if any("not classified" in h.lower() for h in raw_h):
                                             props["危險信號詞"] = "無標示 / 安全"; props["危害警告"] = []
                                         else:
-                                            try: props["危害警告"] = [GoogleTranslator(source='auto', target='zh-TW').translate(h) for h in raw_h[:5]]
-                                            except: props["危害警告"] = raw_h[:5]
+                                            # 💡 修改處：導入精確 GHS 字典與 Regex 清理，防禦 API 斷線並確保翻譯專業度
+                                            ghs_dict = {
+                                                "Extremely flammable": "極度易燃", "Highly Flammable": "高度易燃", "Highly flammable": "高度易燃", "Flammable": "易燃",
+                                                "liquid and vapor": "液體和蒸氣", "liquid and vapour": "液體和蒸氣", "solid": "固體", "gas": "氣體",
+                                                "Harmful if swallowed": "吞食有害", "Fatal if swallowed": "吞食致命", "Toxic if swallowed": "吞食有毒",
+                                                "Causes severe skin burns and eye damage": "造成嚴重皮膚灼傷和眼睛損傷",
+                                                "Causes skin irritation": "造成皮膚刺激", "Causes serious eye damage": "造成嚴重眼睛損傷",
+                                                "Causes serious eye irritation": "造成嚴重眼睛刺激", "May cause respiratory irritation": "可能造成呼吸道刺激",
+                                                "May cause drowsiness or dizziness": "可能造成嗜睡或暈眩", "Very toxic to aquatic life": "對水生生物毒性非常大",
+                                                "Toxic to aquatic life with long lasting effects": "對水生生物有毒並具有長期持續影響",
+                                                "Harmful to aquatic life with long lasting effects": "對水生生物有害並具有長期持續影響",
+                                                "May damage fertility or the unborn child": "可能對生育能力或胎兒造成傷害",
+                                                "Suspected of causing cancer": "懷疑致癌", "May cause cancer": "可能致癌",
+                                                "May intensify fire; oxidizer": "可能加劇火勢；氧化劑",
+                                                "Contains gas under pressure; may explode if heated": "內含加壓氣體；遇熱可能爆炸",
+                                                "Harmful in contact with skin": "皮膚接觸有害", "Toxic in contact with skin": "皮膚接觸有毒",
+                                                "Harmful if inhaled": "吸入有害", "Toxic if inhaled": "吸入有毒", "Fatal if inhaled": "吸入致命",
+                                                "May be fatal if swallowed and enters airways": "吞食並進入呼吸道可能致命",
+                                                "Causes damage to organs": "對器官造成傷害", "May cause damage to organs": "可能對器官造成傷害",
+                                                "May cause an allergic skin reaction": "可能造成皮膚過敏反應",
+                                                "May cause allergy or asthma symptoms or breathing difficulties if inhaled": "吸入可能造成過敏或氣喘症狀或呼吸困難"
+                                            }
+                                            translated_h = []
+                                            for h in raw_h[:5]:
+                                                # 清洗醜陋的 API 字串 (例如 "H225 (100%): Highly Flammable... [Danger...]")
+                                                clean_h = h
+                                                if ":" in clean_h: clean_h = clean_h.split(":", 1)[1]
+                                                if "[" in clean_h: clean_h = clean_h.split("[", 1)[0]
+                                                clean_h = clean_h.strip()
+                                                
+                                                trans_text = clean_h
+                                                for en, zh in ghs_dict.items():
+                                                    trans_text = re.sub(en, zh, trans_text, flags=re.IGNORECASE)
+                                                    
+                                                # 若有殘留未辨識的英文，才交給 Google 翻譯
+                                                if re.search('[a-zA-Z]{4,}', trans_text):
+                                                    try: trans_text = GoogleTranslator(source='en', target='zh-TW').translate(trans_text)
+                                                    except: pass
+                                                translated_h.append(trans_text)
+                                            props["危害警告"] = translated_h
     except: pass
     if is_local:
         for k in props.keys():
