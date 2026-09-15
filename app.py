@@ -39,7 +39,10 @@ LOCAL_CHEM_DICT = {
     "高錳酸鉀": "Potassium permanganate", "碳酸鈉": "Sodium carbonate",
     "氫氧化鈉": "Sodium hydroxide", "乙醇": "Ethanol", "甲醇": "Methanol",
     "苯": "Benzene", "水": "Water", "咖啡酸": "Caffeic acid",
-    "明礬": "Potassium aluminium sulfate", "碘化鎂": "Magnesium iodide"
+    "明礬": "Potassium aluminium sulfate", "碘化鎂": "Magnesium iodide",
+    "氯化銨": "Ammonium chloride", "小蘇打": "Sodium bicarbonate", 
+    "碳酸氫鈉": "Sodium bicarbonate", "葡萄糖": "Glucose", "蔗糖": "Sucrose", 
+    "尿素": "Urea", "甲烷": "Methane"
 }
 
 LOCAL_DATABASE = {
@@ -58,7 +61,7 @@ def contains_chinese(text): return bool(re.search('[\u4e00-\u9fff]', text))
 
 def translate_via_wikipedia(zh_name):
     try:
-        url = f"https://zh.wikipedia.org/w/api.php?action=query&prop=langlinks&titles={zh_name}&lllang=en&format=json"
+        url = f"https://zh.wikipedia.org/w/api.php?action=query&prop=langlinks&titles={zh_name}&lllang=en&redirects=1&format=json"
         res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=5).json()
         for _, page_info in res.get("query", {}).get("pages", {}).items():
             if "langlinks" in page_info: return page_info["langlinks"][0]["*"] 
@@ -134,75 +137,76 @@ def fetch_sds_and_properties(cid, english_name):
                                         if any("not classified" in h.lower() for h in raw_h):
                                             props["危險信號詞"] = "無標示 / 安全"; props["危害警告"] = []
                                         else:
-                                            # 💡 終極完整版 GHS 標準翻譯字典
+                                            # 💡 終極 Regex 模糊特徵比對字典 (依長度與優先級排序，徹底解決斷句與空白問題)
                                             ghs_dict = {
-                                                "Extremely flammable gas": "極度易燃氣體",
-                                                "Highly flammable liquid and vapour": "高度易燃液體和蒸氣",
-                                                "Highly flammable liquid and vapor": "高度易燃液體和蒸氣",
-                                                "Flammable liquid and vapour": "易燃液體和蒸氣",
-                                                "Flammable liquid and vapor": "易燃液體和蒸氣",
-                                                "Combustible liquid": "可燃液體",
-                                                "Extremely flammable": "極度易燃", 
-                                                "Highly Flammable": "高度易燃", 
-                                                "Highly flammable": "高度易燃", 
-                                                "Flammable": "易燃",
-                                                "liquid and vapor": "液體和蒸氣", 
-                                                "liquid and vapour": "液體和蒸氣", 
-                                                "solid": "固體", "gas": "氣體",
-                                                "Heating may cause a fire or explosion": "加熱可能引起火災或爆炸",
-                                                "Heating may cause a fire": "加熱可能引起火災",
-                                                "May intensify fire; oxidizer": "可能加劇火勢；氧化劑",
-                                                "Contains gas under pressure; may explode if heated": "內含加壓氣體；遇熱可能爆炸",
-                                                "In contact with water releases flammable gases": "遇水釋放易燃氣體",
-                                                "May be corrosive to metals": "可能腐蝕金屬",
-                                                "Fatal if swallowed": "吞食致命",
-                                                "Toxic if swallowed": "吞食有毒",
-                                                "Harmful if swallowed": "吞食有害", 
-                                                "May be fatal if swallowed and enters airways": "吞食並進入呼吸道可能致命",
-                                                "Fatal in contact with skin": "皮膚接觸致命",
-                                                "Toxic in contact with skin": "皮膚接觸有毒",
-                                                "Harmful in contact with skin": "皮膚接觸有害", 
-                                                "Causes severe skin burns and eye damage": "造成嚴重皮膚灼傷和眼睛損傷",
-                                                "Causes skin irritation": "造成皮膚刺激", 
-                                                "Causes mild skin irritation": "造成輕微皮膚刺激",
-                                                "May cause an allergic skin reaction": "可能造成皮膚過敏反應",
-                                                "Causes serious eye damage": "造成嚴重眼睛損傷",
-                                                "Causes serious eye irritation": "造成嚴重眼睛刺激", 
-                                                "Causes eye irritation": "造成眼睛刺激",
-                                                "Causes mild eye irritation": "造成輕微眼睛刺激",
-                                                "Fatal if inhaled": "吸入致命",
-                                                "Toxic if inhaled": "吸入有毒", 
-                                                "Harmful if inhaled": "吸入有害", 
-                                                "May cause allergy or asthma symptoms or breathing difficulties if inhaled": "吸入可能造成過敏或氣喘症狀或呼吸困難",
-                                                "May cause respiratory irritation": "可能造成呼吸道刺激",
-                                                "May cause drowsiness or dizziness": "可能造成嗜睡或暈眩",
-                                                "Suspected of causing genetic defects": "懷疑造成遺傳性缺陷",
-                                                "May cause genetic defects": "可能造成遺傳性缺陷",
-                                                "Suspected of causing cancer": "懷疑致癌", 
-                                                "May cause cancer": "可能致癌",
-                                                "May damage fertility or the unborn child": "可能對生育能力或胎兒造成傷害",
-                                                "Suspected of damaging fertility or the unborn child": "懷疑對生育能力或胎兒造成傷害",
-                                                "Causes damage to organs through prolonged or repeated exposure": "長期或重複暴露會對器官造成傷害",
-                                                "May cause damage to organs through prolonged or repeated exposure": "長期或重複暴露可能對器官造成傷害",
-                                                "Causes damage to organs": "對器官造成傷害", 
-                                                "May cause damage to organs": "可能對器官造成傷害",
-                                                "Very toxic to aquatic life with long lasting effects": "對水生生物毒性非常大並具有長期持續影響",
-                                                "Very toxic to aquatic life": "對水生生物毒性非常大",
-                                                "Toxic to aquatic life with long lasting effects": "對水生生物有毒並具有長期持續影響",
-                                                "Harmful to aquatic life with long lasting effects": "對水生生物有害並具有長期持續影響",
-                                                "Toxic to aquatic life": "對水生生物有毒",
-                                                "Harmful to aquatic life": "對水生生物有害"
+                                                r"contains refrigerated gas.*?cryogenic burns or injury": "內含冷凍氣體；可能造成低溫灼傷或損傷",
+                                                r"may cause allergy or asthma symptoms or breathing difficulties if inhaled": "吸入可能造成過敏或氣喘症狀或呼吸困難",
+                                                r"causes damage to organs through prolonged or repeated exposure": "長期或重複暴露會對器官造成傷害",
+                                                r"may cause damage to organs through prolonged or repeated exposure": "長期或重複暴露可能對器官造成傷害",
+                                                r"very toxic to aquatic life with long lasting effects": "對水生生物毒性非常大並具有長期持續影響",
+                                                r"toxic to aquatic life with long lasting effects": "對水生生物有毒並具有長期持續影響",
+                                                r"harmful to aquatic life with long lasting effects": "對水生生物有害並具有長期持續影響",
+                                                r"contains gas under pressure.*?explode if heated": "內含加壓氣體；遇熱可能爆炸",
+                                                r"may be fatal if swallowed and enters airways": "吞食並進入呼吸道可能致命",
+                                                r"suspected of damaging fertility or the unborn child": "懷疑對生育能力或胎兒造成傷害",
+                                                r"may damage fertility or the unborn child": "可能對生育能力或胎兒造成傷害",
+                                                r"in contact with water releases flammable gases": "遇水釋放易燃氣體",
+                                                r"causes severe skin burns and eye damage": "造成嚴重皮膚灼傷和眼睛損傷",
+                                                r"highly flammable liquid and vapo[u]?r": "高度易燃液體和蒸氣",
+                                                r"flammable liquid and vapo[u]?r": "易燃液體和蒸氣",
+                                                r"heating may cause a fire or explosion": "加熱可能引起火災或爆炸",
+                                                r"suspected of causing genetic defects": "懷疑造成遺傳性缺陷",
+                                                r"may cause respiratory irritation": "可能造成呼吸道刺激",
+                                                r"may cause drowsiness or dizziness": "可能造成嗜睡或暈眩",
+                                                r"may cause an allergic skin reaction": "可能造成皮膚過敏反應",
+                                                r"suspected of causing cancer": "懷疑致癌",
+                                                r"causes serious eye irritation": "造成嚴重眼睛刺激",
+                                                r"may cause genetic defects": "可能造成遺傳性缺陷",
+                                                r"very toxic to aquatic life": "對水生生物毒性非常大",
+                                                r"causes serious eye damage": "造成嚴重眼睛損傷",
+                                                r"extremely flammable gas": "極度易燃氣體",
+                                                r"heating may cause a fire": "加熱可能引起火災",
+                                                r"may intensify fire.*?oxidizer": "可能加劇火勢；氧化劑",
+                                                r"harmful in contact with skin": "皮膚接觸有害",
+                                                r"toxic in contact with skin": "皮膚接觸有毒",
+                                                r"fatal in contact with skin": "皮膚接觸致命",
+                                                r"may be corrosive to metals": "可能腐蝕金屬",
+                                                r"causes mild skin irritation": "造成輕微皮膚刺激",
+                                                r"causes mild eye irritation": "造成輕微眼睛刺激",
+                                                r"may cause damage to organs": "可能對器官造成傷害",
+                                                r"causes damage to organs": "對器官造成傷害",
+                                                r"toxic to aquatic life": "對水生生物有毒",
+                                                r"harmful to aquatic life": "對水生生物有害",
+                                                r"harmful if swallowed": "吞食有害",
+                                                r"toxic if swallowed": "吞食有毒",
+                                                r"fatal if swallowed": "吞食致命",
+                                                r"harmful if inhaled": "吸入有害",
+                                                r"toxic if inhaled": "吸入有毒",
+                                                r"fatal if inhaled": "吸入致命",
+                                                r"causes skin irritation": "造成皮膚刺激",
+                                                r"causes eye irritation": "造成眼睛刺激",
+                                                r"extremely flammable": "極度易燃",
+                                                r"highly flammable": "高度易燃",
+                                                r"may cause cancer": "可能致癌",
+                                                r"combustible liquid": "可燃液體",
+                                                r"flammable gas": "易燃氣體",
+                                                r"\bliquid and vapo[u]?r\b": "液體和蒸氣",
+                                                r"flammable": "易燃",
+                                                r"\bsolid\b": "固體",
+                                                r"\bgas\b": "氣體"
                                             }
+                                            
                                             translated_h = []
                                             for h in raw_h[:5]:
                                                 clean_h = h
                                                 if ":" in clean_h: clean_h = clean_h.split(":", 1)[1]
                                                 if "[" in clean_h: clean_h = clean_h.split("[", 1)[0]
-                                                clean_h = clean_h.strip()
+                                                clean_h = clean_h.strip().strip('.')
                                                 
                                                 trans_text = clean_h
-                                                for en, zh in ghs_dict.items():
-                                                    trans_text = re.sub(en, zh, trans_text, flags=re.IGNORECASE)
+                                                # 強制模糊比對，不漏接任何標點符號與空白
+                                                for pattern, zh in ghs_dict.items():
+                                                    trans_text = re.sub(pattern, zh, trans_text, flags=re.IGNORECASE)
                                                     
                                                 if re.search('[a-zA-Z]{4,}', trans_text):
                                                     try: trans_text = GoogleTranslator(source='en', target='zh-TW').translate(trans_text)
