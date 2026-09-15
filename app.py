@@ -137,7 +137,7 @@ def fetch_sds_and_properties(cid, english_name):
                                         if any("not classified" in h.lower() for h in raw_h):
                                             props["危險信號詞"] = "無標示 / 安全"; props["危害警告"] = []
                                         else:
-                                            # 💡 終極 Regex 模糊特徵比對字典 (依長度與優先級排序，徹底解決斷句與空白問題)
+                                            # 💡 終極無死角 Regex 防禦網 (加入所有 H-code 變體與氧化劑細節)
                                             ghs_dict = {
                                                 r"contains refrigerated gas.*?cryogenic burns or injury": "內含冷凍氣體；可能造成低溫灼傷或損傷",
                                                 r"may cause allergy or asthma symptoms or breathing difficulties if inhaled": "吸入可能造成過敏或氣喘症狀或呼吸困難",
@@ -152,6 +152,8 @@ def fetch_sds_and_properties(cid, english_name):
                                                 r"may damage fertility or the unborn child": "可能對生育能力或胎兒造成傷害",
                                                 r"in contact with water releases flammable gases": "遇水釋放易燃氣體",
                                                 r"causes severe skin burns and eye damage": "造成嚴重皮膚灼傷和眼睛損傷",
+                                                r"may cause fire or explosion.*?strong oxidizer": "可能引起火災或爆炸；強氧化劑", # 新增 H271 變體
+                                                r"may cause or intensify fire.*?oxidizer": "可能引起或加劇火勢；氧化劑", # 新增 H270 變體 (解決你的截圖問題)
                                                 r"highly flammable liquid and vapo[u]?r": "高度易燃液體和蒸氣",
                                                 r"flammable liquid and vapo[u]?r": "易燃液體和蒸氣",
                                                 r"heating may cause a fire or explosion": "加熱可能引起火災或爆炸",
@@ -166,7 +168,7 @@ def fetch_sds_and_properties(cid, english_name):
                                                 r"causes serious eye damage": "造成嚴重眼睛損傷",
                                                 r"extremely flammable gas": "極度易燃氣體",
                                                 r"heating may cause a fire": "加熱可能引起火災",
-                                                r"may intensify fire.*?oxidizer": "可能加劇火勢；氧化劑",
+                                                r"may intensify fire.*?oxidizer": "可能加劇火勢；氧化劑", # 保留原本的 H272 變體
                                                 r"harmful in contact with skin": "皮膚接觸有害",
                                                 r"toxic in contact with skin": "皮膚接觸有毒",
                                                 r"fatal in contact with skin": "皮膚接觸致命",
@@ -190,6 +192,8 @@ def fetch_sds_and_properties(cid, english_name):
                                                 r"may cause cancer": "可能致癌",
                                                 r"combustible liquid": "可燃液體",
                                                 r"flammable gas": "易燃氣體",
+                                                r"flammable solid": "易燃固體",
+                                                r"flammable aerosol": "易燃氣膠",
                                                 r"\bliquid and vapo[u]?r\b": "液體和蒸氣",
                                                 r"flammable": "易燃",
                                                 r"\bsolid\b": "固體",
@@ -204,9 +208,9 @@ def fetch_sds_and_properties(cid, english_name):
                                                 clean_h = clean_h.strip().strip('.')
                                                 
                                                 trans_text = clean_h
-                                                # 強制模糊比對，不漏接任何標點符號與空白
-                                                for pattern, zh in ghs_dict.items():
-                                                    trans_text = re.sub(pattern, zh, trans_text, flags=re.IGNORECASE)
+                                                # 強制長度排序比對，確保複合句絕對優先於單字
+                                                for pattern in sorted(ghs_dict.keys(), key=len, reverse=True):
+                                                    trans_text = re.sub(pattern, ghs_dict[pattern], trans_text, flags=re.IGNORECASE)
                                                     
                                                 if re.search('[a-zA-Z]{4,}', trans_text):
                                                     try: trans_text = GoogleTranslator(source='en', target='zh-TW').translate(trans_text)
