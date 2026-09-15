@@ -137,14 +137,12 @@ def fetch_sds_and_properties(cid, english_name):
                                         if any("not classified" in h.lower() for h in raw_h):
                                             props["危險信號詞"] = "無標示 / 安全"; props["危害警告"] = []
                                         else:
-                                            # 🛡️ 終極架構 第一層：聯合國標準 H-Code 全集 (無視英文，代碼直翻)
                                             h_code_dict = {
                                                 "H200": "不穩定爆炸物", "H201": "爆炸物；大範圍爆炸危險", "H202": "爆炸物；嚴重拋射危險", "H203": "爆炸物；火災、爆炸或拋射危險", "H204": "火災或拋射危險", "H205": "大範圍爆炸危險", "H220": "極度易燃氣體", "H221": "易燃氣體", "H222": "極度易燃氣膠", "H223": "易燃氣膠", "H224": "極度易燃液體和蒸氣", "H225": "高度易燃液體和蒸氣", "H226": "易燃液體和蒸氣", "H227": "可燃液體", "H228": "易燃固體", "H240": "加熱可能引起爆炸", "H241": "加熱可能引起火災或爆炸", "H242": "加熱可能引起火災", "H250": "暴露於空氣中可能自燃", "H251": "自熱；可能引起火災", "H252": "大量自熱；可能引起火災", "H260": "遇水釋放可自燃的易燃氣體", "H261": "遇水釋放易燃氣體", "H270": "可能引起或加劇火勢；氧化劑", "H271": "可能引起火災或爆炸；強氧化劑", "H272": "可能加劇火勢；氧化劑", "H280": "內含加壓氣體；遇熱可能爆炸", "H281": "內含冷凍氣體；可能造成低溫灼傷或損傷", "H290": "可能腐蝕金屬",
                                                 "H300": "吞食致命", "H301": "吞食有毒", "H302": "吞食有害", "H303": "吞食可能有害", "H304": "吞食並進入呼吸道可能致命", "H305": "吞食並進入呼吸道可能有害", "H310": "皮膚接觸致命", "H311": "皮膚接觸有毒", "H312": "皮膚接觸有害", "H313": "皮膚接觸可能有害", "H314": "造成嚴重皮膚灼傷和眼睛損傷", "H315": "造成皮膚刺激", "H316": "造成輕微皮膚刺激", "H317": "可能造成皮膚過敏反應", "H318": "造成嚴重眼睛損傷", "H319": "造成嚴重眼睛刺激", "H320": "造成眼睛刺激", "H330": "吸入致命", "H331": "吸入有毒", "H332": "吸入有害", "H333": "吸入可能有害", "H334": "吸入可能造成過敏或氣喘症狀或呼吸困難", "H335": "可能造成呼吸道刺激", "H336": "可能造成嗜睡或暈眩", "H340": "可能造成遺傳性缺陷", "H341": "懷疑造成遺傳性缺陷", "H350": "可能致癌", "H351": "懷疑致癌", "H360": "可能對生育能力或胎兒造成傷害", "H361": "懷疑對生育能力或胎兒造成傷害", "H362": "可能對哺乳嬰兒造成傷害", "H370": "對器官造成傷害", "H371": "可能對器官造成傷害", "H372": "長期或重複暴露會對器官造成傷害", "H373": "長期或重複暴露可能對器官造成傷害",
                                                 "H400": "對水生生物毒性非常大", "H401": "對水生生物有毒", "H402": "對水生生物有害", "H410": "對水生生物毒性非常大並具有長期持續影響", "H411": "對水生生物有毒並具有長期持續影響", "H412": "對水生生物有害並具有長期持續影響", "H413": "可能對水生生物造成長期持續影響", "H420": "破壞高層臭氧，對環境造成危害"
                                             }
                                             
-                                            # 🛡️ 終極架構 第二層：備用 Regex 網 (針對 PubChem 沒提供代碼的舊紀錄)
                                             fallback_ghs_dict = {
                                                 r"contains refrigerated gas.*?cryogenic burns or injury": "內含冷凍氣體；可能造成低溫灼傷或損傷",
                                                 r"may cause allergy or asthma symptoms or breathing difficulties if inhaled": "吸入可能造成過敏或氣喘症狀或呼吸困難",
@@ -209,16 +207,13 @@ def fetch_sds_and_properties(cid, english_name):
                                             
                                             translated_h = []
                                             for h in raw_h[:5]:
-                                                # 🚀 第一層：精準抽出 H-Code (例如從 "H270 (100%): May..." 抽出 H270)
                                                 h_code_match = re.search(r'(H\d{3}[a-zA-Z]?)', h)
                                                 if h_code_match:
                                                     h_code = h_code_match.group(1).upper()
                                                     if h_code in h_code_dict:
-                                                        # 直接輸出最專業的法定翻譯，完全無視後面的英文！
                                                         translated_h.append(f"[{h_code}] {h_code_dict[h_code]}")
                                                         continue 
 
-                                                # 🚀 第二層：如果字串沒有 H-Code，再使用備用模糊網
                                                 clean_h = h
                                                 if ":" in clean_h: clean_h = clean_h.split(":", 1)[1]
                                                 if "[" in clean_h: clean_h = clean_h.split("[", 1)[0]
@@ -228,7 +223,6 @@ def fetch_sds_and_properties(cid, english_name):
                                                 for pattern in sorted(fallback_ghs_dict.keys(), key=len, reverse=True):
                                                     trans_text = re.sub(pattern, fallback_ghs_dict[pattern], trans_text, flags=re.IGNORECASE)
                                                     
-                                                # 🚀 第三層：最後一道防線，呼叫 Google 翻譯
                                                 if re.search('[a-zA-Z]{4,}', trans_text):
                                                     try: trans_text = GoogleTranslator(source='en', target='zh-TW').translate(trans_text)
                                                     except: pass
@@ -305,11 +299,11 @@ with st.sidebar:
     st.header("⚙️ 控制面板")
     user_input = st.text_input("輸入化學名稱 (中文/英文)", "水").strip()
     style = st.selectbox("3D 渲染風格", ["stick", "sphere", "line", "cross"])
-    search_button = st.button("🔍 檢索數據 (啟動快取防禦)", type="primary")
+    search_button = st.button("🔍 檢索物質數據", type="primary")
     
     st.markdown("---")
-    st.header("🧠 物理引擎設定")
-    sim_model = st.selectbox("核心分析模型", [
+    st.header("⚙️ 模擬參數設定")
+    sim_model = st.selectbox("熱力學模擬模型", [
         "巨觀：連續體熱力學 (FDM)", 
         "微觀：聲子躍遷傳遞 (Phonon Hopping)"
     ], help="結合質量權重與鍵能，呈現真實的原子級能量傳遞。")
@@ -325,19 +319,19 @@ with st.sidebar:
     anim_speed = st.slider("動畫幀率延遲 (ms)", 10, 200, 40, step=10)
 
 if search_button and user_input:
-    with st.spinner("🧠 雙軌大數據同步擷取中..."):
+    with st.spinner("⏳ 擷取與解析物質數據中..."):
         success, msg = run_search(user_input)
         if not success: st.error(msg)
 
 # --- 前端雙分頁系統 ---
-tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 網格分離式動畫儀表板"])
+tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 3D 動態熱力學模擬"])
 
 # ==========================================
 # 原始 Tab 1 介面 
 # ==========================================
 with tab1:
     sd = st.session_state.search_data
-    st.success(f"✅ 當前載入物質：「**{sd['english_name']}**」 | 系統已成功解析全數 **{len(st.session_state.mol_atoms)}** 顆真實原子。")
+    st.success(f"✅ 當前載入物質：「**{sd['english_name']}**」 | 成功解析 **{len(st.session_state.mol_atoms)}** 顆原子。")
     c1, c2 = st.columns([1, 1.2])
     with c1:
         st.subheader("⚛️ 空間立體結構")
@@ -386,7 +380,7 @@ with tab2:
         st.warning("⚠️ 系統安全攔截：偵測到當前物質僅具備 2D 平面結構數據，已自動阻斷 3D 熱傳導模擬。")
         st.info("請在左側重新檢索具備立體座標的分子（例如：**水**、**阿斯匹靈**、**咖啡酸**、**苯**），即可解鎖流暢的 3D 動態模擬！")
     else:
-        st.subheader(f"📊 {st.session_state.mol_name} - 物理模擬與科學洞察")
+        st.subheader(f"📊 {st.session_state.mol_name} - 模擬結果分析")
         
         num_atoms = len(st.session_state.mol_atoms)
         radii_list, mass_list, element_texts = [], [], []
@@ -397,10 +391,10 @@ with tab2:
             mass_list.append(data["mass"])
             element_texts.append(elem)
         
-        start_anim = st.button("▶️ 啟動極速物理運算引擎 (動態色彩校正版)", type="primary", use_container_width=True)
+        start_anim = st.button("▶️ 執行物理模擬運算", type="primary", use_container_width=True)
         
         if start_anim:
-            with st.spinner("⚡ 系統正在進行超高速矩陣解算與平衡溫度校準..."):
+            with st.spinner("⚡ 執行矩陣運算與熱力學平衡計算中..."):
                 times = np.linspace(0, sim_duration, 100)
                 
                 if "巨觀" in sim_model:
@@ -460,7 +454,7 @@ with tab2:
                 c_hist = [h[st.session_state.mol_atoms.index(st.session_state.core_node)] for h in history]
                 e_hist = [h[st.session_state.mol_atoms.index(st.session_state.edge_node)] for h in history]
                 
-                st.markdown("### 📝 科學洞察報告 (AI Insights)")
+                st.markdown("### 📝 物理模擬數據面板")
                 i1, i2, i3, i4 = st.columns(4)
                 i1.metric("⚛️ 參與傳導總原子數", f"{len(st.session_state.mol_atoms)} 顆")
                 i2.metric(f"🔥 最高核心{val_name}", f"{c_hist[0]:.1f} {val_unit}")
@@ -484,7 +478,7 @@ with tab2:
                 ))
                 
                 # 💡 這裡【不設定】updatemenus，我們靠自製的懸浮按鈕驅動
-                fig3d.update_layout(autosize=True, height=800, title=f"🔥 真實 3D {val_name} 擴散 (能量守恆色彩校正版)", template="plotly_dark", margin=dict(l=10, r=10, b=10, t=50), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False))
+                fig3d.update_layout(autosize=True, height=800, title=f"🔥 3D {val_name} 動態分佈圖", template="plotly_dark", margin=dict(l=10, r=10, b=10, t=50), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False))
                 
                 fig2d = go.Figure()
                 fig2d.add_trace(go.Scatter(x=[times[0]], y=[c_hist[0]], mode='lines', name="中心源", line=dict(color='red', width=3)))
@@ -521,7 +515,7 @@ with tab2:
                             __HTML_3D__ 
                             <div style="position: absolute; bottom: 15px; left: 0; width: 100%; display: flex; justify-content: center; z-index: 9999; pointer-events: none;">
                                 <div style="background: rgba(30,30,30,0.9); border: 1px solid #555; border-radius: 4px; display: flex; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: auto;">
-                                    <button class="hover-btn" onclick="playAnim()" style="background: transparent; color: white; border: none; padding: 6px 15px; cursor: pointer; border-right: 1px solid #555; font-family: sans-serif; font-size: 13px;">▶️ 播放聯動</button>
+                                    <button class="hover-btn" onclick="playAnim()" style="background: transparent; color: white; border: none; padding: 6px 15px; cursor: pointer; border-right: 1px solid #555; font-family: sans-serif; font-size: 13px;">▶️ 播放動畫</button>
                                     <button class="hover-btn" onclick="pauseAnim()" style="background: transparent; color: white; border: none; padding: 6px 15px; cursor: pointer; font-family: sans-serif; font-size: 13px;">⏸️ 暫停</button>
                                 </div>
                             </div>
