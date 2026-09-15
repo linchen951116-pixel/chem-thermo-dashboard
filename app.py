@@ -245,12 +245,16 @@ def run_search(query_name):
                 try: english_name = GoogleTranslator(source='auto', target='en').translate(query_name)
                 except: return False, "翻譯服務暫時不可用"
 
-    std_compounds = pcp.get_compounds(english_name, 'name')
-    if not std_compounds: return False, f"⚠️ 資料庫無法配對「{english_name}」"
-    
-    c_std = std_compounds[0]; cid = c_std.cid
-    c_3d_list = pcp.get_compounds(cid, record_type='3d')
-    c_3d = c_3d_list[0] if c_3d_list else None
+    # 💡 加入 API 斷線防護罩，攔截 PubChemHTTPError (503 Server Busy)
+    try:
+        std_compounds = pcp.get_compounds(english_name, 'name')
+        if not std_compounds: return False, f"⚠️ 資料庫無法配對「{english_name}」"
+        
+        c_std = std_compounds[0]; cid = c_std.cid
+        c_3d_list = pcp.get_compounds(cid, record_type='3d')
+        c_3d = c_3d_list[0] if c_3d_list else None
+    except Exception as e:
+        return False, "⚠️ 國際 PubChem 伺服器目前忙碌或限制連線數量，請等待 10 秒後再次點擊檢索！"
     
     real_coords = {}
     if c_3d:
