@@ -329,7 +329,6 @@ if search_button and user_input:
 # --- 前端雙分頁系統 ---
 tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 3D 動態熱力學模擬"])
 
-# 💡 終極容錯鎖：確保資料存在才渲染畫面，否則跳出優雅提示
 if 'search_data' not in st.session_state:
     with tab1:
         st.warning("⚠️ 系統初始連線受阻或尚未載入資料。請等待數秒後，在左側控制面板重新輸入名稱並點擊「🔍 檢索物質數據」。")
@@ -503,7 +502,7 @@ else:
                     
                     table_rows = "".join([f"<tr style='border-bottom:1px solid #333;'><td style='padding:6px;'>{element_texts[i]} ({id})</td><td style='padding:6px;'>{'🔥 核心源' if id == st.session_state.core_node else '❄️ 外部點' if id == st.session_state.edge_node else '傳導中圈'}</td><td id='val-{i}' style='color:#00ffcc; font-weight:bold; padding:6px;'>{init_h[i]:.1f} {val_unit}</td></tr>" for i, id in enumerate(st.session_state.mol_atoms)])
 
-                    # 💡 視覺欺騙術：把客製化按鈕定在圖表正下方 (模仿原生 Plotly 的版面)
+                    # 💡 視覺欺騙術：加入了可拖曳進度條的客製化面板
                     html_template = """
                     <!DOCTYPE html>
                     <html>
@@ -524,9 +523,11 @@ else:
                             <div id="left-pane"> 
                                 __HTML_3D__ 
                                 <div style="position: absolute; bottom: 15px; left: 0; width: 100%; display: flex; justify-content: center; z-index: 9999; pointer-events: none;">
-                                    <div style="background: rgba(30,30,30,0.9); border: 1px solid #555; border-radius: 4px; display: flex; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: auto;">
-                                        <button class="hover-btn" onclick="playAnim()" style="background: transparent; color: white; border: none; padding: 6px 15px; cursor: pointer; border-right: 1px solid #555; font-family: sans-serif; font-size: 13px;">▶️ 播放動畫</button>
-                                        <button class="hover-btn" onclick="pauseAnim()" style="background: transparent; color: white; border: none; padding: 6px 15px; cursor: pointer; font-family: sans-serif; font-size: 13px;">⏸️ 暫停</button>
+                                    <div style="background: rgba(30,30,30,0.9); border: 1px solid #555; border-radius: 4px; display: flex; align-items: center; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: auto;">
+                                        <button class="hover-btn" onclick="playAnim()" style="background: transparent; color: white; border: none; padding: 6px 15px; cursor: pointer; border-right: 1px solid #555; font-family: sans-serif; font-size: 13px;">▶️ 播放</button>
+                                        <button class="hover-btn" onclick="pauseAnim()" style="background: transparent; color: white; border: none; padding: 6px 15px; cursor: pointer; border-right: 1px solid #555; font-family: sans-serif; font-size: 13px;">⏸️ 暫停</button>
+                                        <input type="range" id="anim-slider" min="0" max="99" value="0" style="margin: 0 10px; width: 200px; cursor: pointer; accent-color: #ff4b4b;" oninput="seekAnim(this.value)">
+                                        <span id="step-display" style="color: white; font-family: sans-serif; font-size: 12px; margin-right: 15px; min-width: 30px; text-align: right;">0%</span>
                                     </div>
                                 </div>
                             </div>
@@ -559,6 +560,7 @@ else:
                                 timer = setInterval(function() {
                                     currentStep++;
                                     if (currentStep >= h_data.length) currentStep = 0;
+                                    updateSliderUI(currentStep);
                                     updateVisuals(currentStep);
                                 }, anim_speed);
                             }
@@ -566,6 +568,21 @@ else:
                             function pauseAnim() {
                                 playing = false;
                                 clearInterval(timer);
+                            }
+
+                            // 拖曳進度條觸發的函數
+                            function seekAnim(val) {
+                                pauseAnim(); // 拖曳時自動暫停
+                                currentStep = parseInt(val);
+                                updateSliderUI(currentStep);
+                                updateVisuals(currentStep);
+                            }
+
+                            // 更新進度條UI與百分比
+                            function updateSliderUI(step) {
+                                document.getElementById('anim-slider').value = step;
+                                var percent = Math.round((step / (h_data.length - 1)) * 100);
+                                document.getElementById('step-display').innerText = percent + '%';
                             }
 
                             function updateVisuals(step) {
@@ -580,7 +597,10 @@ else:
                                 Plotly.restyle('plot-2d', {'x': [t_data.slice(0, step + 1), t_data.slice(0, step + 1)], 'y': [c_data.slice(0, step + 1), e_data.slice(0, step + 1)]}, [0, 1]);
                             }
                             
-                            window.onload = function() { setTimeout(function() { window.dispatchEvent(new Event('resize')); }, 500); };
+                            window.onload = function() { 
+                                document.getElementById('anim-slider').max = h_data.length - 1;
+                                setTimeout(function() { window.dispatchEvent(new Event('resize')); }, 500); 
+                            };
                         </script>
                     </body>
                     </html>
