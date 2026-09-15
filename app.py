@@ -30,7 +30,6 @@ ATOMIC_DATA = {
     "I": {"mass": 126.90, "radius": 28}, "default": {"mass": 12.0, "radius": 18} 
 }
 
-# 💡 擴充在地防禦字典：將常見展示藥物加入，實現「零延遲、免網路」的終極防禦
 LOCAL_CHEM_DICT = {
     "阿斯匹靈": "Aspirin", "普拿疼": "Acetaminophen", "雙氧水": "Hydrogen peroxide",
     "鹽酸": "Hydrochloric acid", "硫酸": "Sulfuric acid", "硝酸": "Nitric acid",
@@ -40,10 +39,7 @@ LOCAL_CHEM_DICT = {
     "高錳酸鉀": "Potassium permanganate", "碳酸鈉": "Sodium carbonate",
     "氫氧化鈉": "Sodium hydroxide", "乙醇": "Ethanol", "甲醇": "Methanol",
     "苯": "Benzene", "水": "Water", "咖啡酸": "Caffeic acid",
-    "明礬": "Potassium aluminium sulfate", "碘化鎂": "Magnesium iodide",
-    "氯化銨": "Ammonium chloride", "小蘇打": "Sodium bicarbonate", 
-    "碳酸氫鈉": "Sodium bicarbonate", "葡萄糖": "Glucose", "蔗糖": "Sucrose", 
-    "尿素": "Urea", "甲烷": "Methane"
+    "明礬": "Potassium aluminium sulfate", "碘化鎂": "Magnesium iodide"
 }
 
 LOCAL_DATABASE = {
@@ -62,8 +58,7 @@ def contains_chinese(text): return bool(re.search('[\u4e00-\u9fff]', text))
 
 def translate_via_wikipedia(zh_name):
     try:
-        # 💡 升級維基百科 API：加入 redirects=1，智慧解決繁簡體與俗名自動轉向
-        url = f"https://zh.wikipedia.org/w/api.php?action=query&prop=langlinks&titles={zh_name}&lllang=en&redirects=1&format=json"
+        url = f"https://zh.wikipedia.org/w/api.php?action=query&prop=langlinks&titles={zh_name}&lllang=en&format=json"
         res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=5).json()
         for _, page_info in res.get("query", {}).get("pages", {}).items():
             if "langlinks" in page_info: return page_info["langlinks"][0]["*"] 
@@ -139,7 +134,7 @@ def fetch_sds_and_properties(cid, english_name):
                                         if any("not classified" in h.lower() for h in raw_h):
                                             props["危險信號詞"] = "無標示 / 安全"; props["危害警告"] = []
                                         else:
-                                            # 保留上一版的終極完整版 GHS 標準翻譯字典
+                                            # 💡 終極完整版 GHS 標準翻譯字典
                                             ghs_dict = {
                                                 "Extremely flammable gas": "極度易燃氣體",
                                                 "Highly flammable liquid and vapour": "高度易燃液體和蒸氣",
