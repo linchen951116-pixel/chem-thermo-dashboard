@@ -137,8 +137,15 @@ def fetch_sds_and_properties(cid, english_name):
                                         if any("not classified" in h.lower() for h in raw_h):
                                             props["危險信號詞"] = "無標示 / 安全"; props["危害警告"] = []
                                         else:
-                                            # 💡 終極無死角 Regex 防禦網 (加入所有 H-code 變體與氧化劑細節)
-                                            ghs_dict = {
+                                            # 🛡️ 終極架構 第一層：聯合國標準 H-Code 全集 (無視英文，代碼直翻)
+                                            h_code_dict = {
+                                                "H200": "不穩定爆炸物", "H201": "爆炸物；大範圍爆炸危險", "H202": "爆炸物；嚴重拋射危險", "H203": "爆炸物；火災、爆炸或拋射危險", "H204": "火災或拋射危險", "H205": "大範圍爆炸危險", "H220": "極度易燃氣體", "H221": "易燃氣體", "H222": "極度易燃氣膠", "H223": "易燃氣膠", "H224": "極度易燃液體和蒸氣", "H225": "高度易燃液體和蒸氣", "H226": "易燃液體和蒸氣", "H227": "可燃液體", "H228": "易燃固體", "H240": "加熱可能引起爆炸", "H241": "加熱可能引起火災或爆炸", "H242": "加熱可能引起火災", "H250": "暴露於空氣中可能自燃", "H251": "自熱；可能引起火災", "H252": "大量自熱；可能引起火災", "H260": "遇水釋放可自燃的易燃氣體", "H261": "遇水釋放易燃氣體", "H270": "可能引起或加劇火勢；氧化劑", "H271": "可能引起火災或爆炸；強氧化劑", "H272": "可能加劇火勢；氧化劑", "H280": "內含加壓氣體；遇熱可能爆炸", "H281": "內含冷凍氣體；可能造成低溫灼傷或損傷", "H290": "可能腐蝕金屬",
+                                                "H300": "吞食致命", "H301": "吞食有毒", "H302": "吞食有害", "H303": "吞食可能有害", "H304": "吞食並進入呼吸道可能致命", "H305": "吞食並進入呼吸道可能有害", "H310": "皮膚接觸致命", "H311": "皮膚接觸有毒", "H312": "皮膚接觸有害", "H313": "皮膚接觸可能有害", "H314": "造成嚴重皮膚灼傷和眼睛損傷", "H315": "造成皮膚刺激", "H316": "造成輕微皮膚刺激", "H317": "可能造成皮膚過敏反應", "H318": "造成嚴重眼睛損傷", "H319": "造成嚴重眼睛刺激", "H320": "造成眼睛刺激", "H330": "吸入致命", "H331": "吸入有毒", "H332": "吸入有害", "H333": "吸入可能有害", "H334": "吸入可能造成過敏或氣喘症狀或呼吸困難", "H335": "可能造成呼吸道刺激", "H336": "可能造成嗜睡或暈眩", "H340": "可能造成遺傳性缺陷", "H341": "懷疑造成遺傳性缺陷", "H350": "可能致癌", "H351": "懷疑致癌", "H360": "可能對生育能力或胎兒造成傷害", "H361": "懷疑對生育能力或胎兒造成傷害", "H362": "可能對哺乳嬰兒造成傷害", "H370": "對器官造成傷害", "H371": "可能對器官造成傷害", "H372": "長期或重複暴露會對器官造成傷害", "H373": "長期或重複暴露可能對器官造成傷害",
+                                                "H400": "對水生生物毒性非常大", "H401": "對水生生物有毒", "H402": "對水生生物有害", "H410": "對水生生物毒性非常大並具有長期持續影響", "H411": "對水生生物有毒並具有長期持續影響", "H412": "對水生生物有害並具有長期持續影響", "H413": "可能對水生生物造成長期持續影響", "H420": "破壞高層臭氧，對環境造成危害"
+                                            }
+                                            
+                                            # 🛡️ 終極架構 第二層：備用 Regex 網 (針對 PubChem 沒提供代碼的舊紀錄)
+                                            fallback_ghs_dict = {
                                                 r"contains refrigerated gas.*?cryogenic burns or injury": "內含冷凍氣體；可能造成低溫灼傷或損傷",
                                                 r"may cause allergy or asthma symptoms or breathing difficulties if inhaled": "吸入可能造成過敏或氣喘症狀或呼吸困難",
                                                 r"causes damage to organs through prolonged or repeated exposure": "長期或重複暴露會對器官造成傷害",
@@ -152,8 +159,8 @@ def fetch_sds_and_properties(cid, english_name):
                                                 r"may damage fertility or the unborn child": "可能對生育能力或胎兒造成傷害",
                                                 r"in contact with water releases flammable gases": "遇水釋放易燃氣體",
                                                 r"causes severe skin burns and eye damage": "造成嚴重皮膚灼傷和眼睛損傷",
-                                                r"may cause fire or explosion.*?strong oxidizer": "可能引起火災或爆炸；強氧化劑", # 新增 H271 變體
-                                                r"may cause or intensify fire.*?oxidizer": "可能引起或加劇火勢；氧化劑", # 新增 H270 變體 (解決你的截圖問題)
+                                                r"may cause fire or explosion.*?strong oxidizer": "可能引起火災或爆炸；強氧化劑", 
+                                                r"may cause or intensify fire.*?oxidizer": "可能引起或加劇火勢；氧化劑", 
                                                 r"highly flammable liquid and vapo[u]?r": "高度易燃液體和蒸氣",
                                                 r"flammable liquid and vapo[u]?r": "易燃液體和蒸氣",
                                                 r"heating may cause a fire or explosion": "加熱可能引起火災或爆炸",
@@ -168,7 +175,7 @@ def fetch_sds_and_properties(cid, english_name):
                                                 r"causes serious eye damage": "造成嚴重眼睛損傷",
                                                 r"extremely flammable gas": "極度易燃氣體",
                                                 r"heating may cause a fire": "加熱可能引起火災",
-                                                r"may intensify fire.*?oxidizer": "可能加劇火勢；氧化劑", # 保留原本的 H272 變體
+                                                r"may intensify fire.*?oxidizer": "可能加劇火勢；氧化劑",
                                                 r"harmful in contact with skin": "皮膚接觸有害",
                                                 r"toxic in contact with skin": "皮膚接觸有毒",
                                                 r"fatal in contact with skin": "皮膚接觸致命",
@@ -202,16 +209,26 @@ def fetch_sds_and_properties(cid, english_name):
                                             
                                             translated_h = []
                                             for h in raw_h[:5]:
+                                                # 🚀 第一層：精準抽出 H-Code (例如從 "H270 (100%): May..." 抽出 H270)
+                                                h_code_match = re.search(r'(H\d{3}[a-zA-Z]?)', h)
+                                                if h_code_match:
+                                                    h_code = h_code_match.group(1).upper()
+                                                    if h_code in h_code_dict:
+                                                        # 直接輸出最專業的法定翻譯，完全無視後面的英文！
+                                                        translated_h.append(f"[{h_code}] {h_code_dict[h_code]}")
+                                                        continue 
+
+                                                # 🚀 第二層：如果字串沒有 H-Code，再使用備用模糊網
                                                 clean_h = h
                                                 if ":" in clean_h: clean_h = clean_h.split(":", 1)[1]
                                                 if "[" in clean_h: clean_h = clean_h.split("[", 1)[0]
                                                 clean_h = clean_h.strip().strip('.')
                                                 
                                                 trans_text = clean_h
-                                                # 強制長度排序比對，確保複合句絕對優先於單字
-                                                for pattern in sorted(ghs_dict.keys(), key=len, reverse=True):
-                                                    trans_text = re.sub(pattern, ghs_dict[pattern], trans_text, flags=re.IGNORECASE)
+                                                for pattern in sorted(fallback_ghs_dict.keys(), key=len, reverse=True):
+                                                    trans_text = re.sub(pattern, fallback_ghs_dict[pattern], trans_text, flags=re.IGNORECASE)
                                                     
+                                                # 🚀 第三層：最後一道防線，呼叫 Google 翻譯
                                                 if re.search('[a-zA-Z]{4,}', trans_text):
                                                     try: trans_text = GoogleTranslator(source='en', target='zh-TW').translate(trans_text)
                                                     except: pass
