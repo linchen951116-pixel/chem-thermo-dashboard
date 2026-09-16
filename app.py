@@ -5,7 +5,6 @@ import networkx as nx
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
-from scipy.linalg import expm
 from deep_translator import GoogleTranslator
 import re
 import requests
@@ -137,12 +136,14 @@ def fetch_sds_and_properties(cid, english_name):
                                         if any("not classified" in h.lower() for h in raw_h):
                                             props["危險信號詞"] = "無標示 / 安全"; props["危害警告"] = []
                                         else:
+                                            # 🛡️ 終極架構 第一層：聯合國標準 H-Code 全集
                                             h_code_dict = {
                                                 "H200": "不穩定爆炸物", "H201": "爆炸物；大範圍爆炸危險", "H202": "爆炸物；嚴重拋射危險", "H203": "爆炸物；火災、爆炸或拋射危險", "H204": "火災或拋射危險", "H205": "大範圍爆炸危險", "H220": "極度易燃氣體", "H221": "易燃氣體", "H222": "極度易燃氣膠", "H223": "易燃氣膠", "H224": "極度易燃液體和蒸氣", "H225": "高度易燃液體和蒸氣", "H226": "易燃液體和蒸氣", "H227": "可燃液體", "H228": "易燃固體", "H240": "加熱可能引起爆炸", "H241": "加熱可能引起火災或爆炸", "H242": "加熱可能引起火災", "H250": "暴露於空氣中可能自燃", "H251": "自熱；可能引起火災", "H252": "大量自熱；可能引起火災", "H260": "遇水釋放可自燃的易燃氣體", "H261": "遇水釋放易燃氣體", "H270": "可能引起或加劇火勢；氧化劑", "H271": "可能引起火災或爆炸；強氧化劑", "H272": "可能加劇火勢；氧化劑", "H280": "內含加壓氣體；遇熱可能爆炸", "H281": "內含冷凍氣體；可能造成低溫灼傷或損傷", "H290": "可能腐蝕金屬",
                                                 "H300": "吞食致命", "H301": "吞食有毒", "H302": "吞食有害", "H303": "吞食可能有害", "H304": "吞食並進入呼吸道可能致命", "H305": "吞食並進入呼吸道可能有害", "H310": "皮膚接觸致命", "H311": "皮膚接觸有毒", "H312": "皮膚接觸有害", "H313": "皮膚接觸可能有害", "H314": "造成嚴重皮膚灼傷和眼睛損傷", "H315": "造成皮膚刺激", "H316": "造成輕微皮膚刺激", "H317": "可能造成皮膚過敏反應", "H318": "造成嚴重眼睛損傷", "H319": "造成嚴重眼睛刺激", "H320": "造成眼睛刺激", "H330": "吸入致命", "H331": "吸入有毒", "H332": "吸入有害", "H333": "吸入可能有害", "H334": "吸入可能造成過敏或氣喘症狀或呼吸困難", "H335": "可能造成呼吸道刺激", "H336": "可能造成嗜睡或暈眩", "H340": "可能造成遺傳性缺陷", "H341": "懷疑造成遺傳性缺陷", "H350": "可能致癌", "H351": "懷疑致癌", "H360": "可能對生育能力或胎兒造成傷害", "H361": "懷疑對生育能力或胎兒造成傷害", "H362": "可能對哺乳嬰兒造成傷害", "H370": "對器官造成傷害", "H371": "可能對器官造成傷害", "H372": "長期或重複暴露會對器官造成傷害", "H373": "長期或重複暴露可能對器官造成傷害",
                                                 "H400": "對水生生物毒性非常大", "H401": "對水生生物有毒", "H402": "對水生生物有害", "H410": "對水生生物毒性非常大並具有長期持續影響", "H411": "對水生生物有毒並具有長期持續影響", "H412": "對水生生物有害並具有長期持續影響", "H413": "可能對水生生物造成長期持續影響", "H420": "破壞高層臭氧，對環境造成危害"
                                             }
                                             
+                                            # 🛡️ 終極架構 第二層：備用 Regex 網
                                             fallback_ghs_dict = {
                                                 r"contains refrigerated gas.*?cryogenic burns or injury": "內含冷凍氣體；可能造成低溫灼傷或損傷",
                                                 r"may cause allergy or asthma symptoms or breathing difficulties if inhaled": "吸入可能造成過敏或氣喘症狀或呼吸困難",
@@ -223,6 +224,7 @@ def fetch_sds_and_properties(cid, english_name):
                                                 for pattern in sorted(fallback_ghs_dict.keys(), key=len, reverse=True):
                                                     trans_text = re.sub(pattern, fallback_ghs_dict[pattern], trans_text, flags=re.IGNORECASE)
                                                     
+                                                # 🛡️ 第三層：機翻備用
                                                 if re.search('[a-zA-Z]{4,}', trans_text):
                                                     try: trans_text = GoogleTranslator(source='en', target='zh-TW').translate(trans_text)
                                                     except: pass
@@ -245,6 +247,7 @@ def run_search(query_name):
                 try: english_name = GoogleTranslator(source='auto', target='en').translate(query_name)
                 except: return False, "翻譯服務暫時不可用"
 
+    # API 阻擋防護罩：捕獲 PubChemHTTPError
     try:
         std_compounds = pcp.get_compounds(english_name, 'name')
         if not std_compounds: return False, f"⚠️ 資料庫無法配對「{english_name}」"
@@ -306,14 +309,7 @@ with st.sidebar:
     
     st.markdown("---")
     st.header("⚙️ 模擬參數設定")
-    sim_model = st.selectbox("熱力學模擬模型", [
-        "巨觀：連續體熱力學 (FDM)", 
-        "微觀：聲子躍遷傳遞 (Phonon Hopping)"
-    ], help="結合質量權重與鍵能，呈現真實的原子級能量傳遞。")
-    
-    st.markdown("---")
-    if "微觀" in sim_model: st.caption("⚛️ 初始狀態設定 (自動轉換分子內能 meV)")
-    else: st.caption("🌊 初始狀態設定 (連續體環境溫度 °C)")
+    st.caption("⚛️ 初始狀態設定 (自動轉換分子內能 meV)")
         
     env_temp = st.slider("系統環境變數 (對應 °C)", -20.0, 60.0, 25.0, step=0.5)
     init_temp = st.slider("核心激發變數 (對應 °C)", 50.0, 500.0, 500.0, step=10.0)
@@ -329,6 +325,7 @@ if search_button and user_input:
 # --- 前端雙分頁系統 ---
 tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 3D 動態熱力學模擬"])
 
+# 畫面渲染防護
 if 'search_data' not in st.session_state:
     with tab1:
         st.warning("⚠️ 系統初始連線受阻或尚未載入資料。請等待數秒後，在左側控制面板重新輸入名稱並點擊「🔍 檢索物質數據」。")
@@ -336,7 +333,7 @@ if 'search_data' not in st.session_state:
         st.info("⚠️ 請先完成物質檢索，即可解鎖 3D 動態模擬面板。")
 else:
     # ==========================================
-    # 原始 Tab 1 介面 
+    # Tab 1: SDS 物質安全與百科介面
     # ==========================================
     with tab1:
         sd = st.session_state.search_data
@@ -382,7 +379,7 @@ else:
             st.markdown(f"| 屬性類別 | 文獻實測數據 (包含單位) |\n| :--- | :--- |\n| 🧊 **密度 (Density)** | {sds['密度']} |\n| ♨️ **沸點 (Boiling Point)** | {sds['沸點']} |\n| ❄️ **熔點 (Melting Point)** | {sds['熔點']} |\n| 🔥 **閃點 (Flash Point)** | {sds['閃點']} |\n| 💧 **溶解度 (Solubility)** | {sds['溶解度']} |\n| ☁️ **蒸氣壓 (Vapor Pressure)** | {sds['蒸氣壓']} |\n| 👁️ **外觀與性狀** | {sds['外觀與性狀']} |")
 
     # ==========================================
-    # Tab 2：極速物理運算引擎與客製化懸浮按鈕 (完全解決暴走 Bug 且保留版面)
+    # Tab 2：物理運算引擎與客製化非同步渲染
     # ==========================================
     with tab2:
         if st.session_state.search_data['dim_type'] == "2D 平面":
@@ -403,62 +400,42 @@ else:
             start_anim = st.button("▶️ 執行物理模擬運算", type="primary", use_container_width=True)
             
             if start_anim:
-                with st.spinner("⚡ 執行矩陣運算與熱力學平衡計算中..."):
+                with st.spinner("⚡ 執行量子統計與微觀聲子躍遷計算中..."):
                     times = np.linspace(0, sim_duration, 100)
                     
-                    if "巨觀" in sim_model:
-                        G = nx.Graph()
-                        G.add_nodes_from(st.session_state.mol_atoms)
-                        for b in st.session_state.mol_bonds_info: G.add_edge(b['u'], b['v'], weight=b['order'])
-                        L = nx.laplacian_matrix(G, weight='weight').toarray()
-                        norm_mass = np.array(mass_list) / np.mean(mass_list)
-                        Minv_L = np.diag(1.0 / norm_mass).dot(L)
-                        
-                        dt = times[1] - times[0] if len(times) > 1 else 0
-                        step_matrix = expm(-k_val * dt * 100.0 * Minv_L)
-                        T_curr = np.array([env_temp if i != st.session_state.core_node else init_temp for i in st.session_state.mol_atoms])
-                        history = [T_curr]
-                        for _ in range(1, len(times)):
-                            T_curr = step_matrix.dot(T_curr)
-                            history.append(T_curr)
-                            
-                        val_name, val_unit = "巨觀溫度", "°C"
-                        eq_temp = (init_temp + env_temp * (num_atoms - 1)) / num_atoms
-                        visual_cmax = env_temp + (eq_temp - env_temp) * 2.5
-                        val_cmin = env_temp
-                        val_cmax = min(visual_cmax, init_temp) if visual_cmax > env_temp else env_temp + 5
+                    # -----------------------------------------------------
+                    # 【核心】微觀聲子躍遷傳遞 (Phonon Hopping) 演算法
+                    # -----------------------------------------------------
+                    kB_meV = 0.08617 
+                    E_env_meV = kB_meV * (env_temp + 273.15)
+                    E_core_meV = kB_meV * (init_temp + 273.15)
+                    num_phonons = 20000 
+                    excess_energy = E_core_meV - E_env_meV
+                    energy_per_phonon = excess_energy / num_phonons
+                    phonons = [st.session_state.core_node] * num_phonons
                     
-                    else:
-                        kB_meV = 0.08617 
-                        E_env_meV = kB_meV * (env_temp + 273.15)
-                        E_core_meV = kB_meV * (init_temp + 273.15)
-                        num_phonons = 20000 
-                        excess_energy = E_core_meV - E_env_meV
-                        energy_per_phonon = excess_energy / num_phonons
-                        phonons = [st.session_state.core_node] * num_phonons
+                    adj_list = {n: [n] for n in st.session_state.mol_atoms}
+                    for b in st.session_state.mol_bonds_info:
+                        u, v, order = b['u'], b['v'], b['order']
+                        for _ in range(int(order * 2)): 
+                            adj_list[u].append(v)
+                            adj_list[v].append(u)
+                    adj_tuple = {k: tuple(v) for k, v in adj_list.items()}
                         
-                        adj_list = {n: [n] for n in st.session_state.mol_atoms}
-                        for b in st.session_state.mol_bonds_info:
-                            u, v, order = b['u'], b['v'], b['order']
-                            for _ in range(int(order * 2)): 
-                                adj_list[u].append(v)
-                                adj_list[v].append(u)
-                        adj_tuple = {k: tuple(v) for k, v in adj_list.items()}
+                    history, jumps_per_frame = [], int(k_val * 60) + 1 
+                    for step in range(len(times)):
+                        counts = {n: 0 for n in st.session_state.mol_atoms}
+                        for p in phonons: counts[p] += 1
+                        E_arr = np.array([E_env_meV + counts[n] * energy_per_phonon for i, n in enumerate(st.session_state.mol_atoms)])
+                        history.append(E_arr)
+                        for _ in range(jumps_per_frame):
+                            phonons = [random.choice(adj_tuple[p]) for p in phonons]
                             
-                        history, jumps_per_frame = [], int(k_val * 60) + 1 
-                        for step in range(len(times)):
-                            counts = {n: 0 for n in st.session_state.mol_atoms}
-                            for p in phonons: counts[p] += 1
-                            E_arr = np.array([E_env_meV + counts[n] * energy_per_phonon for i, n in enumerate(st.session_state.mol_atoms)])
-                            history.append(E_arr)
-                            for _ in range(jumps_per_frame):
-                                phonons = [random.choice(adj_tuple[p]) for p in phonons]
-                                
-                        val_name, val_unit = "分子內能", "meV"
-                        eq_E = (E_core_meV + E_env_meV * (num_atoms - 1)) / num_atoms
-                        visual_cmax = E_env_meV + (eq_E - E_env_meV) * 2.5
-                        val_cmin = E_env_meV
-                        val_cmax = min(visual_cmax, E_core_meV) if visual_cmax > E_env_meV else E_env_meV + 1
+                    val_name, val_unit = "分子內能", "meV"
+                    eq_E = (E_core_meV + E_env_meV * (num_atoms - 1)) / num_atoms
+                    visual_cmax = E_env_meV + (eq_E - E_env_meV) * 2.5
+                    val_cmin = E_env_meV
+                    val_cmax = min(visual_cmax, E_core_meV) if visual_cmax > E_env_meV else E_env_meV + 1
 
                     c_hist = [h[st.session_state.mol_atoms.index(st.session_state.core_node)] for h in history]
                     e_hist = [h[st.session_state.mol_atoms.index(st.session_state.edge_node)] for h in history]
@@ -470,7 +447,7 @@ else:
                     i3.metric("⚖️ 系統平均原子量", f"{np.mean(mass_list):.1f} amu")
                     i4.metric("⏱️ 達平衡殘餘差值", f"{abs(c_hist[-1] - e_hist[-1]):.2f} {val_unit}")
 
-                    # 3D繪圖 (拔除 Plotly 原生按鈕)
+                    # 3D繪圖
                     fig3d = go.Figure()
                     p3d = st.session_state.mol_coords
                     node_trace_idx = len(st.session_state.mol_bonds) 
@@ -486,13 +463,12 @@ else:
                         marker=dict(size=radii_list, color=init_h, colorscale='Turbo', cmin=val_cmin, cmax=val_cmax, colorbar=dict(title=f"{val_name}<br>(高於 {val_cmax:.1f} 呈現極值紅)", thickness=10, x=-0.05))
                     ))
                     
-                    # 💡 這裡【不設定】updatemenus，我們靠自製的懸浮按鈕驅動
                     fig3d.update_layout(autosize=True, height=800, title=f"🔥 3D {val_name} 動態分佈圖", template="plotly_dark", margin=dict(l=10, r=10, b=10, t=50), scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False))
                     
                     fig2d = go.Figure()
                     fig2d.add_trace(go.Scatter(x=[times[0]], y=[c_hist[0]], mode='lines', name="中心源", line=dict(color='red', width=3)))
                     fig2d.add_trace(go.Scatter(x=[times[0]], y=[e_hist[0]], mode='lines', name="邊緣測量點", line=dict(color='blue', width=3)))
-                    fig2d.update_layout(autosize=True, height=450, title=f"📈 {val_name} 動態變化", template="plotly_dark", margin=dict(l=70, r=20, b=60, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[val_cmin*0.9, (init_temp if "巨觀" in sim_model else E_core_meV)*1.1], title=f"{val_name} ({val_unit})"))
+                    fig2d.update_layout(autosize=True, height=450, title=f"📈 {val_name} 動態變化", template="plotly_dark", margin=dict(l=70, r=20, b=60, t=40), xaxis=dict(range=[0, sim_duration], title="時間 (秒)"), yaxis=dict(range=[val_cmin*0.9, E_core_meV*1.1], title=f"{val_name} ({val_unit})"))
                     
                     html_3d = fig3d.to_html(include_plotlyjs='cdn', full_html=False, div_id='plot-3d', config={'responsive': True})
                     html_2d = fig2d.to_html(include_plotlyjs=False, full_html=False, div_id='plot-2d', config={'responsive': True})
@@ -502,7 +478,6 @@ else:
                     
                     table_rows = "".join([f"<tr style='border-bottom:1px solid #333;'><td style='padding:6px;'>{element_texts[i]} ({id})</td><td style='padding:6px;'>{'🔥 核心源' if id == st.session_state.core_node else '❄️ 外部點' if id == st.session_state.edge_node else '傳導中圈'}</td><td id='val-{i}' style='color:#00ffcc; font-weight:bold; padding:6px;'>{init_h[i]:.1f} {val_unit}</td></tr>" for i, id in enumerate(st.session_state.mol_atoms)])
 
-                    # 💡 視覺欺騙術：加入了可拖曳進度條的客製化面板
                     html_template = """
                     <!DOCTYPE html>
                     <html>
@@ -570,15 +545,13 @@ else:
                                 clearInterval(timer);
                             }
 
-                            // 拖曳進度條觸發的函數
                             function seekAnim(val) {
-                                pauseAnim(); // 拖曳時自動暫停
+                                pauseAnim(); 
                                 currentStep = parseInt(val);
                                 updateSliderUI(currentStep);
                                 updateVisuals(currentStep);
                             }
 
-                            // 更新進度條UI與百分比
                             function updateSliderUI(step) {
                                 document.getElementById('anim-slider').value = step;
                                 var percent = Math.round((step / (h_data.length - 1)) * 100);
