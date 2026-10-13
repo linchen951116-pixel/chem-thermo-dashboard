@@ -19,7 +19,6 @@ st.set_page_config(page_title="化學物質分析與動態熱力學系統", layo
 
 st.title("🧪 物質深度分析 & 3D 動態熱力學系統")
 
-# 物理引擎：真實原子資料庫 (原子量與相對半徑)
 ATOMIC_DATA = {
     "H": {"mass": 1.008, "radius": 12}, "C": {"mass": 12.011, "radius": 22},
     "N": {"mass": 14.007, "radius": 19}, "O": {"mass": 15.999, "radius": 18},
@@ -53,8 +52,27 @@ LOCAL_DATABASE = {
     "Sodium chloride": {"外觀與性狀": "白色結晶性粉末或立方晶體", "密度": "2.165 g/cm³", "熔點": "801.0 °C", "沸點": "1413.0 °C", "閃點": "無相關文獻數據", "溶解度": "易溶於水 (36.0 g/100 mL, 20 °C)", "蒸氣壓": "1 mmHg (865 °C)"}
 }
 
+# 🛡️ 決賽專屬保命數據：完全離線的 3D 水分子 (上帝模式)
+OFFLINE_WATER_DATA = {
+    "search_data": {
+        "english_name": "Water", "cid": 962, "fixed_formula": "H₂O",
+        "molecular_weight": "18.015", "tpsa": "20.2",
+        "h_bond_donor_count": 2, "h_bond_acceptor_count": 1,
+        "isomeric_smiles": "O", "dim_type": "3D 立體",
+        "sds_data": LOCAL_DATABASE["Water"]
+    },
+    "mol_atoms": [1, 2, 3],
+    "mol_bonds": [(1, 2), (1, 3)],
+    "mol_coords": {1: [0.0, 0.0, 0.0], 2: [0.757, 0.586, 0.0], 3: [-0.757, 0.586, 0.0]},
+    "mol_name": "Water",
+    "atom_elements": {1: 'O', 2: 'H', 3: 'H'},
+    "mol_bonds_info": [{'u': 1, 'v': 2, 'order': 1}, {'u': 1, 'v': 3, 'order': 1}],
+    "core_node": 1,
+    "edge_node": 2
+}
+
 # ==========================================
-# 原始數據抓取與智慧正規化引擎
+# 原始數據抓取與智慧正規化引擎 (Data Cleansing)
 # ==========================================
 def contains_chinese(text): return bool(re.search('[\u4e00-\u9fff]', text))
 
@@ -104,6 +122,7 @@ def fetch_sds_and_properties(cid, english_name):
         res = requests.get(url, timeout=10).json()
         sections = res.get("Record", {}).get("Section", [])
         p_map = {"Physical Description": "外觀與性狀", "Density": "密度", "Melting Point": "熔點", "Boiling Point": "沸點", "Flash Point": "閃點", "Solubility": "溶解度", "Vapor Pressure": "蒸氣壓"}
+        
         for sec in sections:
             if sec.get("TOCHeading") == "Chemical and Physical Properties":
                 for subsec in sec.get("Section", []):
@@ -136,14 +155,12 @@ def fetch_sds_and_properties(cid, english_name):
                                         if any("not classified" in h.lower() for h in raw_h):
                                             props["危險信號詞"] = "無標示 / 安全"; props["危害警告"] = []
                                         else:
-                                            # 🛡️ 終極架構 第一層：聯合國標準 H-Code 全集
                                             h_code_dict = {
                                                 "H200": "不穩定爆炸物", "H201": "爆炸物；大範圍爆炸危險", "H202": "爆炸物；嚴重拋射危險", "H203": "爆炸物；火災、爆炸或拋射危險", "H204": "火災或拋射危險", "H205": "大範圍爆炸危險", "H220": "極度易燃氣體", "H221": "易燃氣體", "H222": "極度易燃氣膠", "H223": "易燃氣膠", "H224": "極度易燃液體和蒸氣", "H225": "高度易燃液體和蒸氣", "H226": "易燃液體和蒸氣", "H227": "可燃液體", "H228": "易燃固體", "H240": "加熱可能引起爆炸", "H241": "加熱可能引起火災或爆炸", "H242": "加熱可能引起火災", "H250": "暴露於空氣中可能自燃", "H251": "自熱；可能引起火災", "H252": "大量自熱；可能引起火災", "H260": "遇水釋放可自燃的易燃氣體", "H261": "遇水釋放易燃氣體", "H270": "可能引起或加劇火勢；氧化劑", "H271": "可能引起火災或爆炸；強氧化劑", "H272": "可能加劇火勢；氧化劑", "H280": "內含加壓氣體；遇熱可能爆炸", "H281": "內含冷凍氣體；可能造成低溫灼傷或損傷", "H290": "可能腐蝕金屬",
                                                 "H300": "吞食致命", "H301": "吞食有毒", "H302": "吞食有害", "H303": "吞食可能有害", "H304": "吞食並進入呼吸道可能致命", "H305": "吞食並進入呼吸道可能有害", "H310": "皮膚接觸致命", "H311": "皮膚接觸有毒", "H312": "皮膚接觸有害", "H313": "皮膚接觸可能有害", "H314": "造成嚴重皮膚灼傷和眼睛損傷", "H315": "造成皮膚刺激", "H316": "造成輕微皮膚刺激", "H317": "可能造成皮膚過敏反應", "H318": "造成嚴重眼睛損傷", "H319": "造成嚴重眼睛刺激", "H320": "造成眼睛刺激", "H330": "吸入致命", "H331": "吸入有毒", "H332": "吸入有害", "H333": "吸入可能有害", "H334": "吸入可能造成過敏或氣喘症狀或呼吸困難", "H335": "可能造成呼吸道刺激", "H336": "可能造成嗜睡或暈眩", "H340": "可能造成遺傳性缺陷", "H341": "懷疑造成遺傳性缺陷", "H350": "可能致癌", "H351": "懷疑致癌", "H360": "可能對生育能力或胎兒造成傷害", "H361": "懷疑對生育能力或胎兒造成傷害", "H362": "可能對哺乳嬰兒造成傷害", "H370": "對器官造成傷害", "H371": "可能對器官造成傷害", "H372": "長期或重複暴露會對器官造成傷害", "H373": "長期或重複暴露可能對器官造成傷害",
                                                 "H400": "對水生生物毒性非常大", "H401": "對水生生物有毒", "H402": "對水生生物有害", "H410": "對水生生物毒性非常大並具有長期持續影響", "H411": "對水生生物有毒並具有長期持續影響", "H412": "對水生生物有害並具有長期持續影響", "H413": "可能對水生生物造成長期持續影響", "H420": "破壞高層臭氧，對環境造成危害"
                                             }
                                             
-                                            # 🛡️ 終極架構 第二層：備用 Regex 網
                                             fallback_ghs_dict = {
                                                 r"contains refrigerated gas.*?cryogenic burns or injury": "內含冷凍氣體；可能造成低溫灼傷或損傷",
                                                 r"may cause allergy or asthma symptoms or breathing difficulties if inhaled": "吸入可能造成過敏或氣喘症狀或呼吸困難",
@@ -224,13 +241,13 @@ def fetch_sds_and_properties(cid, english_name):
                                                 for pattern in sorted(fallback_ghs_dict.keys(), key=len, reverse=True):
                                                     trans_text = re.sub(pattern, fallback_ghs_dict[pattern], trans_text, flags=re.IGNORECASE)
                                                     
-                                                # 🛡️ 第三層：機翻備用
                                                 if re.search('[a-zA-Z]{4,}', trans_text):
                                                     try: trans_text = GoogleTranslator(source='en', target='zh-TW').translate(trans_text)
                                                     except: pass
                                                 translated_h.append(trans_text)
                                             props["危害警告"] = translated_h
     except: pass
+    
     if is_local:
         for k in props.keys():
             if props[k] in ["無相關文獻數據", "無資料", "無", None] and k in local_data: props[k] = local_data[k]
@@ -247,7 +264,6 @@ def run_search(query_name):
                 try: english_name = GoogleTranslator(source='auto', target='en').translate(query_name)
                 except: return False, "翻譯服務暫時不可用"
 
-    # API 阻擋防護罩：捕獲 PubChemHTTPError
     try:
         std_compounds = pcp.get_compounds(english_name, 'name')
         if not std_compounds: return False, f"⚠️ 資料庫無法配對「{english_name}」"
@@ -255,46 +271,54 @@ def run_search(query_name):
         c_std = std_compounds[0]; cid = c_std.cid
         c_3d_list = pcp.get_compounds(cid, record_type='3d')
         c_3d = c_3d_list[0] if c_3d_list else None
+        
+        real_coords = {}
+        if c_3d:
+            for atom in c_3d.atoms:
+                if hasattr(atom, 'x') and atom.x is not None: real_coords[atom.aid] = [atom.x, atom.y, atom.z]
+        
+        dim_type = "3D 立體" if len(real_coords) > 0 else "2D 平面"
+        mw = c_std.molecular_weight; tpsa = c_std.tpsa; hbd = c_std.h_bond_donor_count; hba = c_std.h_bond_acceptor_count
+        smiles = c_std.isomeric_smiles or c_std.canonical_smiles
+        sds_props = fetch_sds_and_properties(cid, english_name)
+
+        st.session_state.search_data = {
+            "english_name": english_name.capitalize(), "cid": cid, "fixed_formula": fix_chemical_formula(c_std.molecular_formula),
+            "molecular_weight": f"{mw} " if mw is not None else "無資料", "tpsa": f"{tpsa} " if tpsa is not None else "無資料",
+            "h_bond_donor_count": hbd if hbd is not None else "無", "h_bond_acceptor_count": hba if hba is not None else "無",
+            "isomeric_smiles": smiles if smiles is not None else "無資料", "sds_data": sds_props, "dim_type": dim_type
+        }
+        
+        sim_source = c_3d if (c_3d and real_coords) else c_std
+        st.session_state.mol_atoms = [atom.aid for atom in sim_source.atoms]
+        st.session_state.mol_bonds = [(bond.aid1, bond.aid2) for bond in sim_source.bonds]
+        st.session_state.mol_coords = real_coords
+        st.session_state.mol_name = english_name.capitalize()
+        st.session_state.atom_elements = {atom.aid: atom.element for atom in sim_source.atoms}
+        st.session_state.mol_bonds_info = [{'u': bond.aid1, 'v': bond.aid2, 'order': bond.order} for bond in sim_source.bonds]
+        
+        degree = {}
+        for a, b in st.session_state.mol_bonds: degree[a] = degree.get(a, 0) + 1; degree[b] = degree.get(b, 0) + 1
+        if degree:
+            sorted_nodes = sorted(degree.keys(), key=lambda x: degree[x])
+            st.session_state.core_node, st.session_state.edge_node = sorted_nodes[-1], sorted_nodes[0]
+            if st.session_state.core_node == st.session_state.edge_node and len(st.session_state.mol_atoms) > 1:
+                st.session_state.edge_node = [n for n in st.session_state.mol_atoms if n != st.session_state.core_node][0]
+        else:
+            st.session_state.core_node = st.session_state.mol_atoms[0] if st.session_state.mol_atoms else 0
+            st.session_state.edge_node = st.session_state.mol_atoms[-1] if len(st.session_state.mol_atoms) > 1 else 0
+
+        return True, "Success"
+
     except Exception as e:
-        return False, "⚠️ 國際 PubChem 伺服器目前忙碌或限制連線數量，請等待 10 秒後再次點擊檢索！"
-    
-    real_coords = {}
-    if c_3d:
-        for atom in c_3d.atoms:
-            if hasattr(atom, 'x') and atom.x is not None: real_coords[atom.aid] = [atom.x, atom.y, atom.z]
-    
-    dim_type = "3D 立體" if len(real_coords) > 0 else "2D 平面"
-    mw = c_std.molecular_weight; tpsa = c_std.tpsa; hbd = c_std.h_bond_donor_count; hba = c_std.h_bond_acceptor_count
-    smiles = c_std.isomeric_smiles or c_std.canonical_smiles
-    sds_props = fetch_sds_and_properties(cid, english_name)
-
-    st.session_state.search_data = {
-        "english_name": english_name.capitalize(), "cid": cid, "fixed_formula": fix_chemical_formula(c_std.molecular_formula),
-        "molecular_weight": f"{mw} " if mw is not None else "無資料", "tpsa": f"{tpsa} " if tpsa is not None else "無資料",
-        "h_bond_donor_count": hbd if hbd is not None else "無", "h_bond_acceptor_count": hba if hba is not None else "無",
-        "isomeric_smiles": smiles if smiles is not None else "無資料", "sds_data": sds_props, "dim_type": dim_type
-    }
-    
-    sim_source = c_3d if (c_3d and real_coords) else c_std
-    st.session_state.mol_atoms = [atom.aid for atom in sim_source.atoms]
-    st.session_state.mol_bonds = [(bond.aid1, bond.aid2) for bond in sim_source.bonds]
-    st.session_state.mol_coords = real_coords
-    st.session_state.mol_name = english_name.capitalize()
-    st.session_state.atom_elements = {atom.aid: atom.element for atom in sim_source.atoms}
-    st.session_state.mol_bonds_info = [{'u': bond.aid1, 'v': bond.aid2, 'order': bond.order} for bond in sim_source.bonds]
-    
-    degree = {}
-    for a, b in st.session_state.mol_bonds: degree[a] = degree.get(a, 0) + 1; degree[b] = degree.get(b, 0) + 1
-    if degree:
-        sorted_nodes = sorted(degree.keys(), key=lambda x: degree[x])
-        st.session_state.core_node, st.session_state.edge_node = sorted_nodes[-1], sorted_nodes[0]
-        if st.session_state.core_node == st.session_state.edge_node and len(st.session_state.mol_atoms) > 1:
-            st.session_state.edge_node = [n for n in st.session_state.mol_atoms if n != st.session_state.core_node][0]
-    else:
-        st.session_state.core_node = st.session_state.mol_atoms[0] if st.session_state.mol_atoms else 0
-        st.session_state.edge_node = st.session_state.mol_atoms[-1] if len(st.session_state.mol_atoms) > 1 else 0
-
-    return True, "Success"
+        # 👑【上帝模式觸發點】如果 PubChem API 斷線被封鎖：
+        # 只要你查詢的是「水」，系統直接強制載入離線 3D 數據，保證決賽 Demo 絕對不會全黑！
+        if english_name.lower() in ["water", "水"]:
+            for k, v in OFFLINE_WATER_DATA.items():
+                st.session_state[k] = v
+            return True, "Success"
+        else:
+            return False, "⚠️ 國際 PubChem 伺服器目前限制連線！請在左側輸入「水」，即可啟動【決賽離線展演模式】確保系統運作！"
 
 if 'initialized' not in st.session_state:
     run_search("水") 
@@ -309,10 +333,10 @@ with st.sidebar:
     
     st.markdown("---")
     st.header("⚙️ 模擬參數設定")
-    st.caption("⚛️ 初始狀態設定 (自動轉換分子內能 meV)")
+    st.caption("⚛️ 初始狀態設定 (底層依照 $E = k_B T$ 轉換為微觀內能 meV)")
         
-    env_temp = st.slider("系統環境變數 (對應 °C)", -20.0, 60.0, 25.0, step=0.5)
-    init_temp = st.slider("核心激發變數 (對應 °C)", 50.0, 500.0, 500.0, step=10.0)
+    env_temp = st.slider("環境熱浴溫度 (Thermal Bath, °C)", -20.0, 60.0, 25.0, step=0.5, help="模擬分子周圍巨觀環境的溫度，系統將自動轉換為環境聲子的基礎內能。")
+    init_temp = st.slider("核心等效激發溫度 (Equivalent Temp, °C)", 50.0, 500.0, 500.0, step=10.0, help="以巨觀溫度來定義核心原子的初始激發狀態，方便與真實實驗條件進行對照。")
     k_val = st.slider("系統活躍度常數 (k)", 0.01, 0.50, 0.15, step=0.01)
     sim_duration = st.slider("模擬時長 (秒)", 3.0, 30.0, 10.0, step=1.0)
     anim_speed = st.slider("動畫幀率延遲 (ms)", 10, 200, 40, step=10)
@@ -325,7 +349,6 @@ if search_button and user_input:
 # --- 前端雙分頁系統 ---
 tab1, tab2 = st.tabs(["🧬 SDS 物質安全與化學百科", "🔥 3D 動態熱力學模擬"])
 
-# 畫面渲染防護
 if 'search_data' not in st.session_state:
     with tab1:
         st.warning("⚠️ 系統初始連線受阻或尚未載入資料。請等待數秒後，在左側控制面板重新輸入名稱並點擊「🔍 檢索物質數據」。")
@@ -383,7 +406,7 @@ else:
     # ==========================================
     with tab2:
         if st.session_state.search_data['dim_type'] == "2D 平面":
-            st.warning("⚠️ 系統安全攔截：偵測到當前物質僅具備 2D 平面結構數據，已自動阻斷 3D 熱傳導模擬。")
+            st.warning("⚠️ 系統安全攔截：偵測到當前物質僅具備 2D 平面結構數據，已自動阻斷 3D 熱力學模擬。")
             st.info("請在左側重新檢索具備立體座標的分子（例如：**水**、**阿斯匹靈**、**咖啡酸**、**苯**），即可解鎖流暢的 3D 動態模擬！")
         else:
             st.subheader(f"📊 {st.session_state.mol_name} - 模擬結果分析")
@@ -404,7 +427,7 @@ else:
                     times = np.linspace(0, sim_duration, 100)
                     
                     # -----------------------------------------------------
-                    # 【核心】微觀聲子躍遷傳遞 (Phonon Hopping) 演算法
+                    # 微觀聲子躍遷傳遞 (Phonon Hopping) 演算法
                     # -----------------------------------------------------
                     kB_meV = 0.08617 
                     E_env_meV = kB_meV * (env_temp + 273.15)
@@ -447,7 +470,7 @@ else:
                     i3.metric("⚖️ 系統平均原子量", f"{np.mean(mass_list):.1f} amu")
                     i4.metric("⏱️ 達平衡殘餘差值", f"{abs(c_hist[-1] - e_hist[-1]):.2f} {val_unit}")
 
-                    # 3D繪圖
+                    # 3D繪圖建構
                     fig3d = go.Figure()
                     p3d = st.session_state.mol_coords
                     node_trace_idx = len(st.session_state.mol_bonds) 
